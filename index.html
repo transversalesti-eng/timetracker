@@ -123,7 +123,7 @@
 
 <script>
 // URL de tu Web App de Google Apps Script
-window.GSHEET_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbxrzEa_ds9ESweEE9PoP9BsVJZ3QimUiPmu72e8dCjmAQlB7i5t62JfVSey1Cg24qHQ/exec";
+window.GSHEET_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbz4ISh5NumOgPPin73DmkOZ7i8FSHCw_UOb5uQIM6fC0izp8rK5-kkDXSsoRo0S_heE/exec";
 
 const SUBTASKS = {
   Soporte: ['Revisión tickets', 'Atención telefónica', 'Incidencias'],
@@ -629,13 +629,27 @@ async function loadCodes(){
   const url = window.GSHEET_WEBAPP_URL + '?resource=codes&_=' + Date.now();
   try {
     const res  = await fetch(url, { cache: 'no-store' });
-    const json = await res.json();
-    if (json && json.ok && Array.isArray(json.list)) {
-      // Tu función ya existente: ajustada para aceptar [{Demanda, Asunto}]
-      if (typeof populateDemandCodes === 'function') populateDemandCodes(json.list);
-    } else {
-      console.warn('Respuesta inesperada al cargar códigos', json);
+    const text = await res.text();
+
+    // 1) intenta JSON puro
+    try {
+      const json = JSON.parse(text);
+      if (json && json.ok && Array.isArray(json.list)) {
+        if (typeof populateDemandCodes === 'function') populateDemandCodes(json.list);
+        return;
+      }
+    } catch (_) { /* no es JSON, intentamos JSONP */ }
+
+    // 2) compat: JSONP → extrae el array dentro de populateDemandCodes(...)
+    const m = text.match(/populateDemandCodes\s*\(\s*([\s\S]*?)\s*\)\s*;?\s*$/);
+    if (m) {
+      const list = JSON.parse(m[1]);
+      if (typeof populateDemandCodes === 'function') populateDemandCodes(list);
+      return;
     }
+
+    console.warn('Respuesta inesperada al cargar códigos:', text.slice(0,120));
+
   } catch (err) {
     console.error('Error cargando códigos', err);
   }
