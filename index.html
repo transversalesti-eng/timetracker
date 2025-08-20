@@ -624,7 +624,7 @@ if (typeof onTaskChange === 'function') {
 
 // (Opcional) para el loader JSONP de códigos
 if (typeof populateDemandCodes === 'function') window.populateDemandCodes = populateDemandCodes;
-<script>
+
 async function loadCodes(){
   const url = window.GSHEET_WEBAPP_URL + '?resource=codes&_=' + Date.now();
   try {
