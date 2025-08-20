@@ -603,8 +603,6 @@ function populateDemandCodes(list){
     });
   });
 
-  // Asegura que las funciones referenciadas en atributos HTML existan en window
-
 // Asegura que las funciones referenciadas en atributos HTML existan en window
 window.addActivityBlock  = addActivityBlock;
 window.validateAndSave   = validateAndSave;
@@ -624,6 +622,24 @@ if (typeof onTaskChange === 'function') {
 
 // (Opcional) para el loader JSONP de códigos
 if (typeof populateDemandCodes === 'function') window.populateDemandCodes = populateDemandCodes;
+function onTaskChange(selectEl){
+  const parent       = selectEl.closest('.activity-block');
+  const activity     = parent.querySelector('.activity')?.value;
+  const demandSelect = parent.querySelector('.demand');
+  const subjectInput = parent.querySelector('.subject');
+
+  // En Soporte/Calidad la tarea está habilitada; usamos el texto de la opción como sugerencia de asunto
+  if (activity === 'Soporte' || activity === 'Calidad') {
+    const txt = selectEl.options[selectEl.selectedIndex]?.text || '';
+    subjectInput.value   = txt;
+    subjectInput.readOnly = false; // editable por el usuario
+    if (demandSelect) demandSelect.disabled = true; // coherente con la lógica de actividad
+  }
+  // Para el resto de actividades no hacemos nada especial
+}
+
+// Alias para compatibilidad si el HTML aún llama updateTarea(...)
+window.updateTarea = onTaskChange;
 
 async function loadCodes(){
   const url = window.GSHEET_WEBAPP_URL + '?resource=codes&_=' + Date.now();
@@ -658,3 +674,4 @@ document.addEventListener('DOMContentLoaded', loadCodes);
 </script>
 </body>
 </html>
+
