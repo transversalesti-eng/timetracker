@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TIC Tranversales - Registro de Tiempos</title>
+  <link rel="icon" href="Acciona_logo.svg.png" />
+
+  <style>
+  .table-wrap{ overflow-x:auto; border:1px solid #eee; border-radius:10px; }
+  .table{ width:100%; border-collapse:collapse; font-size:14px; }
+  .table thead th{ position:sticky; top:0; background:#fff0f1; color:var(--acciona); text-align:left; padding:10px; border-bottom:2px solid #f2b4b8; }
+  .table tbody td{ padding:10px; border-bottom:1px solid #f2f2f2; vertical-align:top; }
+  .table tfoot td{ padding:10px; background:#f9f9f9; font-weight:700; }
+  .table tbody tr:hover{ background:#fff8f8; }
+    :root{--acciona:#e30613;--acciona-dark:#ba0510;--ok:#1a7f37;--error:#a40000;}
+    *{box-sizing: border-box;}
+    body {font-family: 'Segoe UI', system-ui, -apple-system, Arial, sans-serif;background:#f6f7f8;margin:0;color:#222;}
+    .container { max-width: 1000px; margin: 24px auto; padding: 24px; background:#fff; border-radius: 14px; box-shadow: 0 10px 25px rgba(0,0,0,.06); }
+    .logo { display:flex; justify-content:center; margin-bottom: 8px; }
+    .logo img { height: 76px; }
+    h1 { text-align:center; color: var(--acciona); margin: 8px 0 24px; letter-spacing:.2px; }
+
+    label { font-weight: 600; color:#333; }
+    .form-row { display:flex; gap:16px; flex-wrap: wrap; }
+    .form-group { margin-bottom: 16px; flex:1; min-width: 220px; }
+    select, input, textarea { width:100%; padding:10px 12px; margin-top:6px; border:1px solid #d9d9d9; border-radius:8px; font-size:15px; background:#fff; transition: .2s border, .2s box-shadow; }
+    select:focus, input:focus, textarea:focus { border-color: var(--acciona); outline: none; box-shadow: 0 0 0 3px rgba(227,6,19,.15); }
+
+    .activity-block { border:2px solid var(--acciona); border-radius:12px; padding:16px; background:#fff; margin-bottom:16px; }
+    .activity-block h3 { margin:0 0 12px; }
+    .badge { display:inline-block; background:#fff0f1; color:var(--acciona); padding:6px 10px; border-radius:999px; font-weight:700; }
+
+    .entry { background:#fff; border:1px solid #eee; border-left:4px solid var(--acciona); padding:12px; border-radius:8px; margin-bottom:10px; display:flex; flex-wrap:wrap; gap:8px 16px; align-items:center; }
+    .entry .meta { flex:1 1 200px; }
+    .entry .row-actions { display:flex; gap:8px; }
+
+    .btn { background: var(--acciona); color:#fff; padding:10px 16px; border:none; border-radius:8px; font-weight:700; cursor:pointer; transition: .2s background, .2s transform; }
+    .btn:hover { background: var(--acciona-dark); }
+    .btn:active { transform: translateY(1px); }
+    .btn-secondary { background:#fff; color:var(--acciona); border:2px solid var(--acciona); }
+    .btn-secondary:hover { background:#ffe6e8; }
+
+    .actions-bar { position: sticky; bottom:0; background:#ffffffd9; backdrop-filter:saturate(180%) blur(4px); display:flex; gap:12px; padding:12px; margin-top:8px; border-top:1px solid #eee; border-radius:0 0 12px 12px; }
+
+    .summary { background:#f7f7f7; border:1px solid #eee; padding:10px 12px; border-radius:8px; font-size: 14px; }
+    .summary.ok { border-color:#cfe9d6; background:#f4fbf6; color: var(--ok); }
+    .summary.bad { border-color:#ffb3b3; background:#fff4f4; color: var(--error); }
+
+    .error { background:#ffecec; color:var(--error); border-left:4px solid var(--error); padding:10px 12px; border-radius:8px; display:none; margin-top:10px; }
+
+    #feedback { position: fixed; top: 20px; right: 20px; padding: 12px 16px; background: #e0f7e9; color: var(--ok); border-left:4px solid var(--ok); border-radius: 10px; box-shadow: 0 10px 25px rgba(0,0,0,.1); font-weight: 700; display:none; z-index: 1000; opacity:0; transform: translateY(-6px); transition: .25s opacity, .25s transform; }
+    #feedback.visible { display:block; opacity:1; transform: translateY(0); }
+.table-wrap{ overflow-x:auto; border:1px solid #eee; border-radius:10px; }
+.table{ width:100%; border-collapse:collapse; font-size:14px; }
+.table thead th{ position:sticky; top:0; background:#fff0f1; color:var(--acciona); text-align:left; padding:10px; border-bottom:2px solid #f2b4b8; }
+.table tbody td{ padding:10px; border-bottom:1px solid #f2f2f2; vertical-align:top; }
+.table tfoot td{ padding:10px; background:#f9f9f9; font-weight:700; }
+.table tbody tr:hover{ background:#fff8f8; }
+  </style>
+</head>
+<body>
+  <div class="container" aria-live="polite">
+    <div class="logo"><img src="Acciona_logo.svg.png" alt="Logo de Acciona" /></div>
+    <h1>TIC Tranversales</h1>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label for="company">Empresa</label>
+        <select id="company" aria-label="Empresa">
+          <option value="" selected>— Selecciona empresa —</option>
+          <option value="Acciona Energía">Acciona Energía</option>
+          <option value="Nfq">Nfq</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="workDate">Fecha</label>
+        <input type="date" id="workDate" aria-label="Fecha" />
+      </div>
+      <div class="form-group">
+        <label for="numPeople">Número de personas</label>
+        <input type="number" id="numPeople" min="1" value="1" aria-label="Número de personas" />
+        <div id="hoursSummary" class="summary" style="margin-top:8px;">Horas totales: <strong id="totalHours">0</strong> / Máximo: <strong id="maxHours">8</strong></div>
+      </div>
+    </div>
+
+    <div id="activitiesContainer"></div>
+
+    <div class="actions-bar">
+      <button class="btn" id="btnAdd" title="Añadir actividad (Enter)" onclick="addActivityBlock()">➕ Añadir actividad</button>
+      <button class="btn" id="btnSave" title="Guardar (Ctrl+S)" onclick="validateAndSave()">💾 Guardar Registro</button>
+      <div id="formError" class="error">⚠️ Revisa los campos marcados o la suma de horas.</div>
+    </div>
+
+<h2 style="margin: 22px 0 8px;">Registros</h2>
+<div class="table-wrap">
+  <table class="table" aria-label="Tabla de registros">
+    <thead>
+	  <tr>
+	    <th>Empresa</th>
+	    <th>Fecha</th>
+	    <th>Actividad</th>
+	    <th>Código de demanda</th>
+	    <th>Tarea</th>
+	    <th>Asunto</th>
+	    <th style="text-align:right;">Horas</th>
+	    <th>Acciones</th>
+	  </tr>
+	</thead>
+    <tbody id="entriesTbody">
+      <tr><td colspan="6">No hay registros.</td></tr>
+    </tbody>
+    <tfoot>
+      <tr>
+        <td colspan="4" style="text-align:right;">Total</td>
+        <td id="entriesTotal" style="text-align:right;">0.00</td>
+        <td></td>
+      </tr>
+    </tfoot>
+  </table>
+</div>
+<div id="feedback" role="status" aria-live="assertive"></div>
+
+<script>
+// URL de tu Web App de Google Apps Script
+window.GSHEET_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbwOsNDwxVxZwvwsJRVwsP6aPra_sAJ0rhxW0-zriY45XnbkFCovuf1CSPMLOyyf3ufD/exec";
+
+const SUBTASKS = {
+  Soporte: ['Revisión tickets', 'Atención telefónica', 'Incidencias'],
+  Calidad: ['Auditoría interna', 'Indicadores', 'Documentación']
+};
+
+let timeEntries = [];
+let activityCount = 0;
+let DEMAND_CODES = [];
+const ACTIVITY_OPTIONS = [
+  'Delivery',
+  'Soporte',
+  'Proveedores',
+  'Operaciones',
+  'Económicas',
+  'Calidad',
+  'Coordinación',
+  'Demanda'
+];
+
+const CARTERAS = [
+  'EN.Asesoria Jurídica','EN.Calidad y Seguridad','EN.Data&AI',
+  'EN.Desarrollo Corporativo y Estrategia','EN.Financiero - Finanzas',
+  'EN.Innovación','EN.Marketing','EN.Oficina de Estudios CEO','EN.QSE','EN.RRHH',
+  'EN.Seguridad','EN.Sostenibilidad','EN.Supply Chain',
+  'EN.TIC - Aplicaciones','EN.TIC - Arq. Tecnológica y Gobierno IT','EN.TIC - Comunicaciones',
+  'EN.TIC - Demanda','EN.TIC - Infraestructuras','EN.TIC - Puesto de Usuario','EN.TIC - Servicios de Usuario'
+];
+
+function fillOptions(selectEl, options){
+  const placeholder = '<option value="" selected>— Selecciona —</option>';
+  selectEl.innerHTML = placeholder + (options || []).map(v => `<option value="${v}">${v}</option>`).join('');
+}
+	
+    // Helpers UI
+    function showFeedback(message){
+      const box = document.getElementById('feedback');
+      box.textContent = message;
+      box.classList.add('visible');
+      setTimeout(()=> box.classList.remove('visible'), 2500);
+    }
+    function showError(msg){
+      const box = document.getElementById('formError');
+      box.textContent = '⚠️ ' + msg;
+      box.style.display = 'block';
+    }
+    function hideError(){
+      const box = document.getElementById('formError');
+      if (!box) return; box.style.display = 'none';
+    }
+
+    // Crear bloque de actividad (con prefill opcional)
+    function createActivityBlock(prefill){
+      activityCount++;
+      const container = document.getElementById('activitiesContainer');
+      const block = document.createElement('div');
+      block.className = 'activity-block';
+      block.id = `activity-${activityCount}`;
+      block.innerHTML = `
+	  <h3><span class="badge">📌 Actividad ${activityCount}</span></h3>
+	  <div class="form-row" style="align-items:flex-end;">
+
+	    <div class="form-group" style="flex:0 1 190px; min-width:160px;">
+	      <label>Actividad</label>
+	      <select class="activity" aria-label="Actividad" onchange="onActivityChange(this)">
+	        <option value="" selected>— Selecciona actividad —</option>
+	        ${ACTIVITY_OPTIONS.map(a => `<option value="${a}">${a}</option>`).join('')}
+	      </select>
+	    </div>
+
+	    <div class="form-group" style="flex:0 1 180px; min-width:160px;">
+	      <label>Código de demanda</label>
+	      <select class="demand" aria-label="Código de demanda" onchange="onDemandChange(this)" disabled>
+	        <option value="" selected>— Selecciona código —</option>
+	      </select>
+	    </div>
+
+	    <div class="form-group" style="flex:0 1 220px; min-width:180px;">
+	      <label>Tarea</label>
+	      <select class="task" aria-label="Tarea" onchange="updateTarea(this)" disabled>
+	        <option value="" selected>— Selecciona tarea —</option>
+	      </select>
+	    </div>
+
+	    <div class="form-group" style="flex:2 1 320px;">
+	      <label>Asunto</label>
+	      <input type="text" class="subject" aria-label="Asunto" />
+	    </div>
+
+	    <div class="form-group" style="max-width:140px;">
+	      <label>Horas</label>
+	      <input type="number" class="hours" min="0" step="0.25" aria-label="Horas" />
+	    </div>
+
+	    <div class="form-group" style="flex:0 0 120px; text-align:right;">
+	      <button type="button" class="btn-secondary" title="Eliminar actividad"
+	        onclick="this.closest('.activity-block').remove(); recalcHours();">🗑 Eliminar</button>
+	    </div>
+	  </div>`;
+
+
+      container.appendChild(block);
+
+      // Inicializar según prefill o genéricas
+const activitySelect = block.querySelector('.activity');
+onActivityChange(activitySelect);
+}
+
+
+    function addActivityBlock(){ createActivityBlock(); }
+
+
+function onActivityChange(selectEl){
+  const parent       = selectEl.closest('.activity-block');
+  const demandSelect = parent.querySelector('.demand');
+  const taskSelect   = parent.querySelector('.task');
+  const subjectInput = parent.querySelector('.subject');
+
+  // reset básico
+  fillOptions(taskSelect, []);
+  fillOptions(demandSelect, []);
+  taskSelect.disabled   = true;
+  demandSelect.disabled = true;
+  subjectInput.readOnly = false;
+  subjectInput.value    = '';
+
+  const v = selectEl.value;
+
+  switch (v) {
+	case 'Delivery': {
+	  const hydrate = () => {
+	    fillOptions(demandSelect, window.DEMAND_CODES);
+	    demandSelect.disabled = false;
+	    // asunto se bloqueará al elegir demanda si hay mapeo
+	  };
+	
+	  if (Array.isArray(window.DEMAND_CODES) && window.DEMAND_CODES.length > 0) {
+	    hydrate();
+	  } else {
+	    demandSelect.disabled = true;
+	    demandSelect.innerHTML = '<option value="">Cargando códigos…</option>';
+	    window.addEventListener('demandcodes:ready', hydrate, { once:true });
+	  }
+	  break;
+	}
+
+
+    case 'Soporte':
+	  // Tarea habilitada (3 opciones), Código de demanda deshabilitado, Asunto libre
+	  taskSelect.disabled   = false;
+	  fillOptions(taskSelect, SUBTASKS.Soporte);
+	
+	  demandSelect.disabled = true;
+	  fillOptions(demandSelect, []);
+	
+	  subjectInput.readOnly = false;
+	  break;
+
+    case 'Proveedores':
+      // Todo bloqueado salvo Asunto libre
+      taskSelect.disabled   = true;
+      demandSelect.disabled = true;
+      subjectInput.readOnly = false;
+      break;
+
+    case 'Operaciones':
+    case 'Económicas':
+    case 'Coordinación':
+      // Tarea y Código de demanda deshabilitados, Asunto libre
+      taskSelect.disabled   = true;
+      demandSelect.disabled = true;
+      subjectInput.readOnly = false;
+      break;
+
+    case 'Calidad':
+      // Tarea habilitada (3 opciones), Código de demanda deshabilitado, Asunto libre
+      taskSelect.disabled   = false;
+      fillOptions(taskSelect, SUBTASKS.Calidad);
+      demandSelect.disabled = true;
+      subjectInput.readOnly = false;
+      break;
+
+    case 'Demanda':
+      // Tarea deshabilitada, Código de demanda = listado de carteras, Asunto libre
+      taskSelect.disabled   = true;
+      demandSelect.disabled = false;
+      fillOptions(demandSelect, CARTERAS);
+      subjectInput.readOnly = false;
+      break;
+
+    default:
+      // Sin actividad elegida: todo vacío/bloqueado excepto Asunto libre
+      break;
+  }
+}
+
+	function onDemandChange(selectEl){
+	  const parent       = selectEl.closest('.activity-block');
+	  const activity     = parent.querySelector('.activity').value;
+	  const subjectInput = parent.querySelector('.subject');
+	  const code         = selectEl.value || '';
+	
+	  // Si hay mapeo en CodigosDemanda, usarlo
+	  const mapped = (window.DEMAND_MAP && window.DEMAND_MAP[code]) || '';
+	
+	  if (activity === 'Delivery') {
+	    subjectInput.value   = mapped || '';
+	    subjectInput.readOnly = !!mapped; // bloquear solo cuando existe mapeo
+	  } else {
+	    // Para otras actividades, dejamos asunto libre
+	    if (mapped) subjectInput.value = mapped; // opción: sugerir si existe coincidencia
+	    subjectInput.readOnly = false;
+	  }
+	}
+
+
+
+ // Limpia el formulario para una nueva captura
+    function resetFormAfterSave(){
+      const companyEl = document.getElementById('company');
+      const dateEl = document.getElementById('workDate');
+      const peopleEl = document.getElementById('numPeople');
+      const actsEl = document.getElementById('activitiesContainer');
+      if (companyEl) companyEl.value = '';
+      if (dateEl) dateEl.value = new Date().toISOString().split('T')[0];
+      if (peopleEl) peopleEl.value = 1;
+      if (actsEl) actsEl.innerHTML = '';
+      if (typeof activityCount !== 'undefined') activityCount = 0;
+      if (typeof createActivityBlock === 'function') createActivityBlock();
+      if (typeof recalcHours === 'function') recalcHours(0);
+      if (typeof hideError === 'function') hideError();
+    }
+
+async function validateAndSave() {
+      hideError();
+      const numPeople = parseInt(document.getElementById('numPeople').value) || 0;
+      const maxHours = numPeople * 8;
+      let totalHours = 0;
+
+      const activities = Array.from(document.querySelectorAll('.activity-block'));
+      const date = document.getElementById('workDate').value;
+      const company = document.getElementById('company').value;
+
+      if (!company){ showError('Selecciona la empresa.'); return; }
+      if (!date){ showError('Selecciona la fecha.'); return; }
+
+		let hasFieldError = false;
+		const records = activities.map(block => {
+		  const activity = block.querySelector('.activity')?.value || '';
+		  const demand   = block.querySelector('.demand')?.value || '';
+		
+		  // Si la <select class="task"> está habilitada (Soporte/Calidad), extrae la tarea.
+		  const taskEl = block.querySelector('.task');
+		  const task   = (taskEl && !taskEl.disabled)
+		    ? (taskEl.value || (taskEl.options[taskEl.selectedIndex]?.text || ''))
+		    : '';
+		
+		  // Asunto: usa el del input; si viene vacío y hay mapeo por demanda, úsalo.
+		  let subject  = block.querySelector('.subject')?.value || '';
+		  if (!subject && window.DEMAND_MAP && demand) {
+		    subject = window.DEMAND_MAP[demand] || '';
+		  }
+		
+		  const hoursEl = block.querySelector('.hours');
+		  const hours   = parseFloat(hoursEl.value) || 0;
+		
+		  totalHours += hours;
+		  if (hours <= 0) { hoursEl.style.borderColor = 'var(--error)'; hasFieldError = true; }
+		  else { hoursEl.style.borderColor = ''; }
+		
+		  return {
+		    company,
+		    date,                    // ← Fecha imputada
+		    num_people: numPeople,   // ← Nº personas
+		    activity,                // ← NUEVO
+		    demand,                  // ← Código de demanda
+		    task,                    // ← NUEVO
+		    subject,                 // ← Asunto (del input o del mapeo)
+		    hours                    // ← Horas
+		  };
+		});
+
+      const btnSave = document.getElementById('btnSave');
+      try {
+        if (btnSave) { btnSave.disabled = true; btnSave.textContent = 'Enviando...'; }
+        const sendRes = await sendToSheets(records);
+	if (sendRes.ok) {
+	    // ✅ Solo ahora impactamos UI local
+	    timeEntries.push(...records);
+	    updateEntries();
+	    recalcHours(totalHours, maxHours);
+	    showFeedback('📤 Enviado a Google Sheets');
+	    resetFormAfterSave();
+	  } else if (sendRes.reason === 'missing_url') {
+	    showError('⚠️ Falta configurar la URL del Web App');
+	  } else if (sendRes.reason === 'timeout') {
+	    showError('⚠️ Sin confirmación del servidor (timeout)');
+	  } else {
+	    showError('⚠️ El servidor no confirmó el guardado');
+	    console.log('Diagnóstico envío:', sendRes);
+	  }
+      } catch (err) {
+        console.error(err);
+        showError('⚠️ Error inesperado al guardar');
+      } finally {
+        if (btnSave) { btnSave.disabled = false; btnSave.textContent = '💾 Guardar Registro'; }
+      }
+    }
+
+    // Envío sin CORS: form + iframe (robusto: autocrea DOM si falta)
+    function ensureSheetsTransport(urlValue){
+      let iframe = document.getElementById('sheets_target');
+      if (!iframe){
+        iframe = document.createElement('iframe');
+        iframe.name = 'sheets_target';
+        iframe.id = 'sheets_target';
+        iframe.style.display = 'none';
+        document.body.appendChild(iframe);
+      }
+      let form = document.getElementById('sheets-form');
+      if (!form){
+        form = document.createElement('form');
+        form.id = 'sheets-form';
+        form.method = 'POST';
+        form.target = 'sheets_target';
+        form.style.display = 'none';
+        document.body.appendChild(form);
+      }
+      let urlInput = document.getElementById('sheets-url');
+      if (!urlInput){
+        urlInput = document.createElement('input');
+        urlInput.type = 'hidden';
+        urlInput.id = 'sheets-url';
+        form.appendChild(urlInput);
+      }
+      if (urlValue) urlInput.value = urlValue;
+
+      let recInput = document.getElementById('sheets-records');
+      if (!recInput){
+        recInput = document.createElement('input');
+        recInput.type = 'hidden';
+        recInput.name = 'records';
+        recInput.id = 'sheets-records';
+        form.appendChild(recInput);
+      }
+      return { iframe, form, urlInput, recInput };
+    }
+
+    // --- Google Sheets ---
+async function sendToSheets(records){
+  const url = window.GSHEET_WEBAPP_URL;
+  if (!url || !/^https:\/\/script.google.com\/macros\//.test(url)) {
+    console.warn('GSHEET_WEBAPP_URL vacío o inválido');
+    return { ok: false, reason: 'missing_url' };
+  }
+
+  // Construye (o reutiliza) iframe y form ocultos
+  const { iframe, form, recInput } = ensureSheetsTransport(url); // ya existe en tu código
+  form.action = url;           // destino = tu Web App
+  form.method = 'POST';
+  recInput.value = JSON.stringify(records); // el servidor recibirá e.parameter.records
+
+  // Consideramos éxito cuando el iframe carga (no podemos leer la respuesta por cross-origin)
+  return new Promise((resolve) => {
+    const timeout = setTimeout(() => resolve({ ok:false, reason:'timeout' }), 10000);
+    iframe.onload = () => { clearTimeout(timeout); resolve({ ok:true }); };
+    form.submit();
+  });
+}
+
+    // --- Resumen de horas ---
+    function recalcHours(passedTotal, passedMax){
+      const numPeople = parseInt(document.getElementById('numPeople').value) || 0;
+      const max = passedMax ?? numPeople * 8;
+      const total = passedTotal ?? Array.from(document.querySelectorAll('.hours')).reduce((s, el)=> s + (parseFloat(el.value)||0), 0);
+      document.getElementById('totalHours').textContent = total.toFixed(2);
+      document.getElementById('maxHours').textContent = max.toFixed(2);
+      const box = document.getElementById('hoursSummary');
+      box.classList.toggle('ok', total <= max);
+      box.classList.toggle('bad', total > max);
+    }
+
+    // --- Tabla de registros ---
+    function updateEntries(){
+      const tbody = document.getElementById('entriesTbody');
+      const totalCell = document.getElementById('entriesTotal');
+      if (!tbody) return;
+
+      if (!timeEntries.length){
+        tbody.innerHTML = '<tr><td colspan="6">No hay registros.</td></tr>';
+        if (totalCell) totalCell.textContent = '0.00';
+        return;
+      }
+
+      const total = timeEntries.reduce((s,e)=> s + (parseFloat(e.hours)||0), 0).toFixed(2);
+      tbody.innerHTML = timeEntries.map((e, idx)=> `
+	  <tr>
+	    <td>${e.company || ''}</td>
+	    <td>${e.date || ''}</td>
+	    <td>${e.activity || '—'}</td>
+	    <td>${e.demand || '—'}</td>
+	    <td>${e.task || '—'}</td>
+	    <td>${e.subject || '—'}</td>
+	    <td style="text-align:right; white-space:nowrap;">${e.hours}</td>
+	    <td style="white-space:nowrap;">
+	      <button class="btn-secondary" title="Editar" onclick="editEntry(${idx})">✏</button>
+	      <button class="btn-secondary" title="Eliminar" onclick="deleteEntry(${idx})">🗑</button>
+	    </td>
+	  </tr>`).join('');
+      if (totalCell) totalCell.textContent = total;
+    }
+    function editEntry(idx){
+      const rec = timeEntries[idx];
+      if (!rec) return;
+      createActivityBlock({ demand: rec.demand || '', taskId: rec.taskId || '', hours: rec.hours });
+      timeEntries.splice(idx,1);
+      updateEntries();
+      showFeedback('✏ Registro cargado para edición');
+      window.scrollTo({ top: 0, behavior:'smooth' });
+    }
+
+    function deleteEntry(idx){
+      timeEntries.splice(idx,1);
+      updateEntries();
+      showFeedback('🗑 Registro eliminado');
+    }
+
+  // Hook que recibe la lista desde Apps Script
+function populateDemandCodes(list){
+  // list puede venir como: [{Demanda:'DMND0001', Asunto:'Implantación OVA'}, ...]
+  // o en minúsculas; aceptamos ambas.
+  window.DEMAND_CODES = [];
+  window.DEMAND_MAP   = {}; // code -> subject
+
+  (Array.isArray(list) ? list : []).forEach(item => {
+    const code = item.Demanda || item.demanda || item.code || '';
+    const subj = item.Asunto  || item.asunto  || item.subject || '';
+    if (code) {
+      window.DEMAND_CODES.push(code);
+      window.DEMAND_MAP[code] = subj || '';
+    }
+  });
+
+  console.log('DEMAND_CODES cargados:', window.DEMAND_CODES.length);
+  window.dispatchEvent(new CustomEvent('demandcodes:ready'));
+
+  // Si ya hay bloques "Delivery" en pantalla, hidrata sus selects + asunto
+  document.querySelectorAll('.activity-block').forEach(block => {
+    const activity = block.querySelector('.activity')?.value;
+    if (activity === 'Delivery') {
+      const demandSelect = block.querySelector('.demand');
+      const subjectInput = block.querySelector('.subject');
+
+      // Rellena opciones de códigos
+      fillOptions(demandSelect, window.DEMAND_CODES);
+      demandSelect.disabled = false;
+
+      // Si ya había un code elegido, refresca el asunto desde el MAP
+      const code = demandSelect.value || '';
+      subjectInput.value   = (window.DEMAND_MAP[code] || '');
+      subjectInput.readOnly = !!subjectInput.value; // bloquea si hay mapeo
+    }
+  });
+}
+
+
+ // Crear el primer bloque al cargar y configurar escuchas
+  document.addEventListener('DOMContentLoaded', () => {
+    // fecha por defecto
+    const dateEl = document.getElementById('workDate');
+    if (dateEl) dateEl.value = new Date().toISOString().split('T')[0];
+
+    // crea el primer bloque de actividad
+    createActivityBlock();
+
+    // UI de horas
+    recalcHours();
+    const peopleEl = document.getElementById('numPeople');
+    if (peopleEl) peopleEl.addEventListener('input', () => recalcHours());
+    const actsEl = document.getElementById('activitiesContainer');
+    if (actsEl) actsEl.addEventListener('input', (e) => {
+      if (e.target.classList.contains('hours')) recalcHours();
+    });
+  });
+
+  // Asegura que las funciones referenciadas en atributos HTML existan en window
+
+// Asegura que las funciones referenciadas en atributos HTML existan en window
+window.addActivityBlock  = addActivityBlock;
+window.validateAndSave   = validateAndSave;
+window.onActivityChange  = onActivityChange;
+window.onDemandChange    = onDemandChange;
+
+// Si usas la versión con updateTasks / updateTarea (v2), expórtalas si existen
+if (typeof updateTasks === 'function')  window.updateTasks  = updateTasks;
+if (typeof updateTarea === 'function')  window.updateTarea  = updateTarea;
+
+// Compatibilidad: si el HTML aún llama onTaskChange, apunta al alias correcto
+if (typeof onTaskChange === 'function') { 
+  window.onTaskChange = onTaskChange; 
+} else if (typeof updateTarea === 'function') { 
+  window.onTaskChange = updateTarea; 
+}
+
+// (Opcional) para el loader JSONP de códigos
+if (typeof populateDemandCodes === 'function') window.populateDemandCodes = populateDemandCodes;
+
+</script>
+<script>
+	(function loadCodes(){
+	  if (window.__codesLoading) return;        // evita doble carga
+	  window.__codesLoading = true;
+	
+	  var url = window.GSHEET_WEBAPP_URL + '?resource=codes&_=' + Date.now();
+	  var s = document.createElement('script');
+	  s.src = url;
+	  s.defer = true;
+	  s.onerror = function(){ /* silenciar */ };
+	  document.head.appendChild(s);
+	})();
+</script>
+</body>
+</html>
