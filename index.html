@@ -123,7 +123,7 @@
 
 <script>
 // URL de tu Web App de Google Apps Script
-window.GSHEET_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbwOsNDwxVxZwvwsJRVwsP6aPra_sAJ0rhxW0-zriY45XnbkFCovuf1CSPMLOyyf3ufD/exec";
+window.GSHEET_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbw6BqEFmZ06n71kIm6hzSvaamwho4N3ZTEiRx0PQQTk_e_w5athTfq9HnNclQrnMQpj/exec";
 
 const SUBTASKS = {
   Soporte: ['Revisión tickets', 'Atención telefónica', 'Incidencias'],
@@ -475,23 +475,17 @@ async function validateAndSave() {
     // --- Google Sheets ---
 async function sendToSheets(records){
   const url = window.GSHEET_WEBAPP_URL;
-  if (!url || !/^https:\/\/script.google.com\/macros\//.test(url)) {
-    console.warn('GSHEET_WEBAPP_URL vacío o inválido');
-    return { ok: false, reason: 'missing_url' };
+  if (!url || !/^https:\/\/script\.google\.com\/macros\//.test(url)) {
+    return { ok:false, reason:'missing_url' };
   }
-
-  // Construye (o reutiliza) iframe y form ocultos
-  const { iframe, form, recInput } = ensureSheetsTransport(url); // ya existe en tu código
-  form.action = url;           // destino = tu Web App
-  form.method = 'POST';
-  recInput.value = JSON.stringify(records); // el servidor recibirá e.parameter.records
-
-  // Consideramos éxito cuando el iframe carga (no podemos leer la respuesta por cross-origin)
-  return new Promise((resolve) => {
-    const timeout = setTimeout(() => resolve({ ok:false, reason:'timeout' }), 10000);
-    iframe.onload = () => { clearTimeout(timeout); resolve({ ok:true }); };
-    form.submit();
-  });
+  const body = new URLSearchParams({ records: JSON.stringify(records) });
+  try {
+    const res  = await fetch(url, { method:'POST', body });
+    const data = await res.json().catch(()=> ({}));
+    return { ok: !!(data && data.ok), data, status: res.status };
+  } catch (err) {
+    return { ok:false, reason:'network_error', error: err };
+  }
 }
 
     // --- Resumen de horas ---
@@ -630,20 +624,23 @@ if (typeof onTaskChange === 'function') {
 
 // (Opcional) para el loader JSONP de códigos
 if (typeof populateDemandCodes === 'function') window.populateDemandCodes = populateDemandCodes;
-
-</script>
 <script>
-	(function loadCodes(){
-	  if (window.__codesLoading) return;        // evita doble carga
-	  window.__codesLoading = true;
-	
-	  var url = window.GSHEET_WEBAPP_URL + '?resource=codes&_=' + Date.now();
-	  var s = document.createElement('script');
-	  s.src = url;
-	  s.defer = true;
-	  s.onerror = function(){ /* silenciar */ };
-	  document.head.appendChild(s);
-	})();
+async function loadCodes(){
+  const url = window.GSHEET_WEBAPP_URL + '?resource=codes&_=' + Date.now();
+  try {
+    const res  = await fetch(url, { cache: 'no-store' });
+    const json = await res.json();
+    if (json && json.ok && Array.isArray(json.list)) {
+      // Tu función ya existente: ajustada para aceptar [{Demanda, Asunto}]
+      if (typeof populateDemandCodes === 'function') populateDemandCodes(json.list);
+    } else {
+      console.warn('Respuesta inesperada al cargar códigos', json);
+    }
+  } catch (err) {
+    console.error('Error cargando códigos', err);
+  }
+}
+document.addEventListener('DOMContentLoaded', loadCodes);
 </script>
 </body>
 </html>
