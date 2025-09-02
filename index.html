@@ -57,6 +57,7 @@
 .table tbody td{ padding:10px; border-bottom:1px solid #f2f2f2; vertical-align:top; }
 .table tfoot td{ padding:10px; background:#f9f9f9; font-weight:700; }
 .table tbody tr:hover{ background:#fff8f8; }
+.hidden{ display:none !important; }
   </style>
 </head>
 <body>
@@ -89,6 +90,8 @@
     <div class="actions-bar">
       <button class="btn" id="btnAdd" title="Añadir actividad (Enter)" onclick="addActivityBlock()">➕ Añadir actividad</button>
       <button class="btn" id="btnSave" title="Guardar (Ctrl+S)" onclick="validateAndSave()">💾 Guardar Registro</button>
+	  <button type="button" id="cancelEditBtn" class="btn-ghost hidden" onclick="cancelEdit()">Cancelar edición</button>
+
       <div id="formError" class="error">⚠️ Revisa los campos marcados o la suma de horas.</div>
     </div>
 
@@ -98,6 +101,7 @@
     <thead>
 	  <tr>
 	    <th>Empresa</th>
+		<th>Cartera</th>
 	    <th>Fecha</th>
 	    <th>Actividad</th>
 	    <th>Código de demanda</th>
@@ -107,12 +111,12 @@
 	    <th>Acciones</th>
 	  </tr>
 	</thead>
-    <tbody id="entriesTbody">
-      <tr><td colspan="6">No hay registros.</td></tr>
-    </tbody>
+	<tbody id="entriesTbody">
+	  <tr><td colspan="9">No hay registros.</td></tr>
+	</tbody>
     <tfoot>
       <tr>
-        <td colspan="4" style="text-align:right;">Total</td>
+        <td colspan="7" style="text-align:right;">Total</td>
         <td id="entriesTotal" style="text-align:right;">0.00</td>
         <td></td>
       </tr>
@@ -123,7 +127,7 @@
 
 <script>
 // URL de tu Web App de Google Apps Script
-window.GSHEET_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbz4ISh5NumOgPPin73DmkOZ7i8FSHCw_UOb5uQIM6fC0izp8rK5-kkDXSsoRo0S_heE/exec";
+window.GSHEET_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbxXFXpSMpmWJT7OJDYaUK416WGNwujWpGVpYpQpPXsqgmz4oOE7gIUEjgI-YLFsHOiW/exec";
 
 const SUBTASKS = {
   Soporte: ['Revisión tickets', 'Atención telefónica', 'Incidencias'],
@@ -132,6 +136,8 @@ const SUBTASKS = {
 
 let timeEntries = [];
 let activityCount = 0;
+let editingIndex = null;       // null = creación, número = edición
+let editingOriginalId = null;  // (si en el futuro guardas IDs de Sheets)
 let DEMAND_CODES = [];
 const ACTIVITY_OPTIONS = [
   'Delivery',
@@ -145,7 +151,7 @@ const ACTIVITY_OPTIONS = [
 ];
 
 const CARTERAS = [
-  'EN.Asesoria Jurídica','EN.Calidad y Seguridad','EN.Data&AI',
+  'Global','EN.Asesoria Jurídica','EN.Calidad y Seguridad','EN.Data&AI',
   'EN.Desarrollo Corporativo y Estrategia','EN.Financiero - Finanzas',
   'EN.Innovación','EN.Marketing','EN.Oficina de Estudios CEO','EN.QSE','EN.RRHH',
   'EN.Seguridad','EN.Sostenibilidad','EN.Supply Chain',
@@ -177,63 +183,128 @@ function fillOptions(selectEl, options){
 
     // Crear bloque de actividad (con prefill opcional)
     function createActivityBlock(prefill){
-      activityCount++;
-      const container = document.getElementById('activitiesContainer');
-      const block = document.createElement('div');
-      block.className = 'activity-block';
-      block.id = `activity-${activityCount}`;
-      block.innerHTML = `
-	  <h3><span class="badge">📌 Actividad ${activityCount}</span></h3>
-	  <div class="form-row" style="align-items:flex-end;">
+	  activityCount++;
+	  const container = document.getElementById('activitiesContainer');
+	  const block = document.createElement('div');
+	  block.className = 'activity-block';
+	  block.id = `activity-${activityCount}`;
+	  block.innerHTML = `
+	    <h3><span class="badge">📌 Actividad ${activityCount}</span></h3>
+	    <div class="form-row" style="align-items:flex-end;">
+	
+	      <div class="form-group" style="flex:0 1 190px; min-width:160px;">
+	        <label>Actividad</label>
+	        <select class="activity" aria-label="Actividad" onchange="onActivityChange(this)">
+	          <option value="" selected>— Selecciona actividad —</option>
+	          ${ACTIVITY_OPTIONS.map(a => `<option value="${a}">${a}</option>`).join('')}
+	        </select>
+	      </div>
+	
+	      <div class="form-group" style="flex:0 1 200px; min-width:160px;">
+	        <label>Cartera</label>
+	        <select class="portfolio" aria-label="Cartera">
+	          ${CARTERAS.map(v => `<option value="${v}">${v}</option>`).join('')}
+	        </select>
+	      </div>
+	
+	      <div class="form-group" style="flex:0 1 180px; min-width:160px;">
+	        <label>Código de demanda</label>
+	        <select class="demand" aria-label="Código de demanda" onchange="onDemandChange(this)" disabled>
+	          <option value="" selected>— Selecciona código —</option>
+	        </select>
+	      </div>
+	
+	      <div class="form-group" style="flex:0 1 220px; min-width:180px;">
+	        <label>Tarea</label>
+	        <select class="task" aria-label="Tarea" onchange="updateTarea(this)" disabled>
+	          <option value="" selected>— Selecciona tarea —</option>
+	        </select>
+	      </div>
+	
+	      <div class="form-group" style="flex:2 1 320px;">
+	        <label>Asunto</label>
+	        <input type="text" class="subject" aria-label="Asunto" />
+	      </div>
+	
+	      <div class="form-group" style="max-width:140px;">
+	        <label>Horas</label>
+	        <input type="number" class="hours" min="0" step="0.25" aria-label="Horas" />
+	      </div>
+	
+	      <div class="form-group" style="flex:0 0 120px; text-align:right;">
+	        <button type="button" class="btn-secondary" title="Eliminar actividad"
+	          onclick="this.closest('.activity-block').remove(); recalcHours();">🗑 Eliminar</button>
+	      </div>
+	    </div>`;
+	
+	  container.appendChild(block);
+	
+	  // Inicializar según genéricas
+	  const activitySelect = block.querySelector('.activity');
+	  onActivityChange(activitySelect);
+	
+	
+	
+			// ===== PREFILL (si viene de editar) =====
+		if (prefill && typeof prefill === 'object'){
+		  // 1) Actividad
+		  if (prefill.activity){
+		    activitySelect.value = prefill.activity;
+		    onActivityChange(activitySelect);
+		  }
+		  // 2) Cartera
+		  const portfolio = block.querySelector('.portfolio');
+		  if (portfolio && prefill.cartera){
+		    const opt = [...portfolio.options].find(o => o.value === prefill.cartera);
+		    if (!opt){
+		      portfolio.insertAdjacentHTML('beforeend', `<option value="${prefill.cartera}">${prefill.cartera}</option>`);
+		    }
+		    portfolio.value = prefill.cartera;
+		  }
+		  // 3) Código de demanda (si actividad=Delivery) y asunto por mapeo
+		  const demandSelect = block.querySelector('.demand');
+		  const subjectInput = block.querySelector('.subject');
+		  if (demandSelect && prefill.demand){
+		    if (Array.isArray(window.DEMAND_CODES) && window.DEMAND_CODES.length){
+		      fillOptions(demandSelect, window.DEMAND_CODES);
+		      demandSelect.disabled = false;
+		    }
+		    demandSelect.value = prefill.demand;
+		    onDemandChange(demandSelect);
+		  }
+		  // 4) Tarea (si procede)
+		  const taskSelect = block.querySelector('.task');
+		  if (taskSelect){
+		    if (prefill.task){
+		      // asegúrate de que exista como opción
+		      const exists = [...taskSelect.options].some(o => (o.value === prefill.task || o.text === prefill.task));
+		      if (!exists){
+		        taskSelect.insertAdjacentHTML('beforeend', `<option value="${prefill.task}">${prefill.task}</option>`);
+		      }
+		      taskSelect.value = prefill.task;
+		      taskSelect.disabled = false; // si estás editando, se supone que es válida
+		    } else if (prefill.taskId){
+		      taskSelect.value = prefill.taskId;
+		      taskSelect.disabled = false;
+		    }
+		  }
+		  // 5) Asunto (si no lo rellenó el mapeo)
+		  if (subjectInput){
+		    if (prefill.subject){
+		      subjectInput.value = prefill.subject;
+		      // si viene de mapeo, puede estar readOnly; en edición lo dejamos editable:
+		      subjectInput.readOnly = false;
+		    }
+		  }
+		  // 6) Horas
+		  const hoursEl = block.querySelector('.hours');
+		  if (hoursEl && prefill.hours != null){
+		    hoursEl.value = prefill.hours;
+		  }
+		}
+	}
 
-	    <div class="form-group" style="flex:0 1 190px; min-width:160px;">
-	      <label>Actividad</label>
-	      <select class="activity" aria-label="Actividad" onchange="onActivityChange(this)">
-	        <option value="" selected>— Selecciona actividad —</option>
-	        ${ACTIVITY_OPTIONS.map(a => `<option value="${a}">${a}</option>`).join('')}
-	      </select>
-	    </div>
-
-	    <div class="form-group" style="flex:0 1 180px; min-width:160px;">
-	      <label>Código de demanda</label>
-	      <select class="demand" aria-label="Código de demanda" onchange="onDemandChange(this)" disabled>
-	        <option value="" selected>— Selecciona código —</option>
-	      </select>
-	    </div>
-
-	    <div class="form-group" style="flex:0 1 220px; min-width:180px;">
-	      <label>Tarea</label>
-	      <select class="task" aria-label="Tarea" onchange="updateTarea(this)" disabled>
-	        <option value="" selected>— Selecciona tarea —</option>
-	      </select>
-	    </div>
-
-	    <div class="form-group" style="flex:2 1 320px;">
-	      <label>Asunto</label>
-	      <input type="text" class="subject" aria-label="Asunto" />
-	    </div>
-
-	    <div class="form-group" style="max-width:140px;">
-	      <label>Horas</label>
-	      <input type="number" class="hours" min="0" step="0.25" aria-label="Horas" />
-	    </div>
-
-	    <div class="form-group" style="flex:0 0 120px; text-align:right;">
-	      <button type="button" class="btn-secondary" title="Eliminar actividad"
-	        onclick="this.closest('.activity-block').remove(); recalcHours();">🗑 Eliminar</button>
-	    </div>
-	  </div>`;
-
-
-      container.appendChild(block);
-
-      // Inicializar según prefill o genéricas
-const activitySelect = block.querySelector('.activity');
-onActivityChange(activitySelect);
-}
-
-
-    function addActivityBlock(){ createActivityBlock(); }
+function addActivityBlock(){ createActivityBlock(); }
 
 
 function onActivityChange(selectEl){
@@ -306,20 +377,24 @@ function onActivityChange(selectEl){
       subjectInput.readOnly = false;
       break;
 
-    case 'Demanda':
-      // Tarea deshabilitada, Código de demanda = listado de carteras, Asunto libre
-      taskSelect.disabled   = true;
-      demandSelect.disabled = false;
-      fillOptions(demandSelect, CARTERAS);
-      subjectInput.readOnly = false;
-      break;
-
-    default:
-      // Sin actividad elegida: todo vacío/bloqueado excepto Asunto libre
-      break;
-  }
+	case 'Demanda': {
+	  const block        = selectEl.closest('.activity-block');
+	  const taskSelect   = block.querySelector('.task');
+	  const demandSelect = block.querySelector('.demand');
+	  const subjectInput = block.querySelector('.subject');
+	
+	  // Deshabilitar demanda y tarea; asunto libre
+	  taskSelect && (taskSelect.disabled = true);
+	  if (demandSelect) {
+	    demandSelect.disabled = true;
+	    demandSelect.innerHTML = '<option value="">— Selecciona código —</option>';
+	  }
+	  subjectInput && (subjectInput.readOnly = false);
+	  break;
+	  }
+	}
 }
-
+	
 	function onDemandChange(selectEl){
 	  const parent       = selectEl.closest('.activity-block');
 	  const activity     = parent.querySelector('.activity').value;
@@ -358,80 +433,177 @@ function onActivityChange(selectEl){
     }
 
 async function validateAndSave() {
-      hideError();
-      const numPeople = parseInt(document.getElementById('numPeople').value) || 0;
-      const maxHours = numPeople * 8;
-      let totalHours = 0;
+  hideError();
+  const numPeople = parseInt(document.getElementById('numPeople').value) || 0;
+  const maxHours = numPeople * 8;
+  let totalHours = 0;
 
-      const activities = Array.from(document.querySelectorAll('.activity-block'));
-      const date = document.getElementById('workDate').value;
-      const company = document.getElementById('company').value;
+  const activities = Array.from(document.querySelectorAll('.activity-block'));
+  const date = document.getElementById('workDate').value;
+  const company = document.getElementById('company').value;
 
-      if (!company){ showError('Selecciona la empresa.'); return; }
-      if (!date){ showError('Selecciona la fecha.'); return; }
+  if (!company){ showError('Selecciona la empresa.'); return; }
+  if (!date){ showError('Selecciona la fecha.'); return; }
 
-		let hasFieldError = false;
-		const records = activities.map(block => {
-		  const activity = block.querySelector('.activity')?.value || '';
-		  const demand   = block.querySelector('.demand')?.value || '';
-		
-		  // Si la <select class="task"> está habilitada (Soporte/Calidad), extrae la tarea.
-		  const taskEl = block.querySelector('.task');
-		  const task   = (taskEl && !taskEl.disabled)
-		    ? (taskEl.value || (taskEl.options[taskEl.selectedIndex]?.text || ''))
-		    : '';
-		
-		  // Asunto: usa el del input; si viene vacío y hay mapeo por demanda, úsalo.
-		  let subject  = block.querySelector('.subject')?.value || '';
-		  if (!subject && window.DEMAND_MAP && demand) {
-		    subject = window.DEMAND_MAP[demand] || '';
-		  }
-		
-		  const hoursEl = block.querySelector('.hours');
-		  const hours   = parseFloat(hoursEl.value) || 0;
-		
-		  totalHours += hours;
-		  if (hours <= 0) { hoursEl.style.borderColor = 'var(--error)'; hasFieldError = true; }
-		  else { hoursEl.style.borderColor = ''; }
-		
-		  return {
-		    company,
-		    date,                    // ← Fecha imputada
-		    num_people: numPeople,   // ← Nº personas
-		    activity,                // ← NUEVO
-		    demand,                  // ← Código de demanda
-		    task,                    // ← NUEVO
-		    subject,                 // ← Asunto (del input o del mapeo)
-		    hours                    // ← Horas
-		  };
-		});
+  let hasFieldError = false;
+  const records = activities.map(block => {
+    const activity = block.querySelector('.activity')?.value || '';
+    let demand     = block.querySelector('.demand')?.value || '';
+    const cartera  = block.querySelector('.portfolio')?.value || 'Global';
 
-      const btnSave = document.getElementById('btnSave');
-      try {
-        if (btnSave) { btnSave.disabled = true; btnSave.textContent = 'Enviando...'; }
-        const sendRes = await sendToSheets(records);
-	if (sendRes.ok) {
-	    // ✅ Solo ahora impactamos UI local
-	    timeEntries.push(...records);
-	    updateEntries();
-	    recalcHours(totalHours, maxHours);
-	    showFeedback('📤 Enviado a Google Sheets');
-	    resetFormAfterSave();
-	  } else if (sendRes.reason === 'missing_url') {
-	    showError('⚠️ Falta configurar la URL del Web App');
-	  } else if (sendRes.reason === 'timeout') {
-	    showError('⚠️ Sin confirmación del servidor (timeout)');
+    // Tarea (solo si select no está deshabilitado)
+    const taskEl = block.querySelector('.task');
+    const task   = (taskEl && !taskEl.disabled)
+      ? (taskEl.value || (taskEl.options[taskEl.selectedIndex]?.text || ''))
+      : '';
+
+	// VALIDACIÓN: cuando la actividad requiere Tarea, no puede quedar en "— Selecciona —"
+	if (activity === 'Soporte' || activity === 'Calidad') {
+	  // si el select está habilitado pero sin valor (placeholder con value="")
+	  const taskIsEmpty = !taskEl || taskEl.disabled || !taskEl.value;
+	  if (taskIsEmpty) {
+	    hasFieldError = true;
+	    if (taskEl) taskEl.style.borderColor = 'var(--error)';
 	  } else {
-	    showError('⚠️ El servidor no confirmó el guardado');
-	    console.log('Diagnóstico envío:', sendRes);
+	    if (taskEl) taskEl.style.borderColor = '';
 	  }
-      } catch (err) {
-        console.error(err);
-        showError('⚠️ Error inesperado al guardar');
-      } finally {
-        if (btnSave) { btnSave.disabled = false; btnSave.textContent = '💾 Guardar Registro'; }
-      }
+	} else {
+	  // otras actividades: limpia posible rojo previo
+	  if (taskEl) taskEl.style.borderColor = '';
+	}
+
+
+    // Reglas nuevas:
+    // 1) Si la actividad es "Demanda" => NO se envía código de demanda
+    if (activity === 'Demanda') {
+      demand = '';
     }
+
+    // 2) Si la actividad es "Delivery" => requerir código de demanda
+    if (activity === 'Delivery' && !demand) {
+      hasFieldError = true;
+      const demandSelect = block.querySelector('.demand');
+      if (demandSelect) demandSelect.style.borderColor = 'var(--error)';
+    } else {
+      const demandSelect = block.querySelector('.demand');
+      if (demandSelect) demandSelect.style.borderColor = '';
+    }
+
+    // Asunto: usa input; si viene vacío y hay mapeo por demanda (Delivery), úsalo
+    let subject = block.querySelector('.subject')?.value || '';
+    if (!subject && activity === 'Delivery' && window.DEMAND_MAP && demand) {
+      subject = window.DEMAND_MAP[demand] || '';
+    }
+
+    // Horas
+    const hoursEl = block.querySelector('.hours');
+    const hours   = parseFloat(hoursEl.value) || 0;
+
+    totalHours += hours;
+    if (hours <= 0) { 
+      hoursEl.style.borderColor = 'var(--error)'; 
+      hasFieldError = true; 
+    } else { 
+      hoursEl.style.borderColor = ''; 
+    }
+
+    // Validar actividad vacía (opcional pero recomendado)
+    if (!activity) {
+      hasFieldError = true;
+      const actEl = block.querySelector('.activity');
+      if (actEl) actEl.style.borderColor = 'var(--error)';
+    } else {
+      const actEl = block.querySelector('.activity');
+      if (actEl) actEl.style.borderColor = '';
+    }
+
+    return {
+      company,
+      date,
+      num_people: numPeople,
+      activity,
+      demand,     // ← quedará vacío si actividad === 'Demanda'
+      task,
+      subject,
+      hours,
+      cartera     // ← nuevo campo, va siempre
+    };
+  });
+
+	 const isEdit = (editingIndex !== null);
+	  if (isEdit && records.length !== 1){
+	    showError('En modo edición solo puedes tener una actividad.');
+	    return;
+	  }
+
+
+
+  // Si hubo errores de campo, no enviamos
+  if (hasFieldError) {
+    showError('Revisa los campos resaltados en rojo.');
+    return;
+  }
+	// BLOQUEO por exceso de horas (suma de actividades > numPersonas*8)
+	if (totalHours > maxHours) {
+	  recalcHours(totalHours, maxHours); // refresca semáforo
+	  showError(`La suma de horas (${totalHours.toFixed(2)}) supera el máximo permitido (${maxHours.toFixed(2)}).`);
+	  const box = document.getElementById('hoursSummary');
+	  if (box) { box.classList.add('bad'); box.classList.remove('ok'); }
+	  return;
+	}
+	
+    const btnSave = document.getElementById('btnSave');
+	try {
+	  if (btnSave) { btnSave.disabled = true; btnSave.textContent = 'Enviando...'; }
+	
+	  let sendRes;
+	if (isEdit){
+	  // Envío de UNA fila en modo actualización (incluye id)
+	  records[0].id = editingOriginalId;   // <-- imprescindible
+	  sendRes = await sendUpdateToSheets(records[0]);
+	} else {
+	  // Alta múltiple como antes
+	  sendRes = await sendToSheets(records);
+	}
+	
+	if (sendRes.ok){
+	  if (isEdit){
+	    // Sustituimos la fila editada SOLO tras confirmación del servidor
+	    const updated = { ...records[0], id: editingOriginalId }; // <-- conserva id
+	    timeEntries[editingIndex] = updated;
+	    editingIndex = null;
+	    editingOriginalId = null;           // <-- limpia el estado
+	    toggleEditUI(false);
+	  } else {
+	    // Altas normales, SOLO tras confirmación del servidor
+	    // Copiamos los ids devueltos por el backend
+	    const ids = (sendRes.data && Array.isArray(sendRes.data.ids)) ? sendRes.data.ids : [];
+	    records.forEach((r, i) => { r.id = ids[i] || r.id || null; });
+	    timeEntries.push(...records);
+	  }
+	  updateEntries();
+	  recalcHours(totalHours, maxHours);
+	  showFeedback('📤 Guardado en servidor');
+	  resetFormAfterSave();
+	} else if (sendRes.reason === 'missing_url') {
+	  showError('⚠️ Falta configurar la URL del Web App');
+	} else if (sendRes.reason === 'network_error') {
+	  showError('⚠️ No se pudo conectar con el servidor');
+	} else if (sendRes.reason === 'timeout') {
+	  showError('⚠️ Sin confirmación del servidor (timeout)');
+	} else {
+	  showError('⚠️ El servidor no confirmó el guardado');
+	  console.log('Diagnóstico envío:', sendRes);
+	}
+
+	} catch (err) {
+	  console.error(err);
+	  showError('⚠️ Error inesperado al guardar');
+	} finally {
+	  if (btnSave) { btnSave.disabled = false; btnSave.textContent = '💾 Guardar Registro'; }
+	}
+ }
+
 
     // Envío sin CORS: form + iframe (robusto: autocrea DOM si falta)
     function ensureSheetsTransport(urlValue){
@@ -488,6 +660,45 @@ async function sendToSheets(records){
   }
 }
 
+async function sendUpdateToSheets(entry){
+  const url = window.GSHEET_WEBAPP_URL;
+  if (!url || !/^https:\/\/script\.google\.com\/macros\//.test(url)) {
+    return { ok:false, reason:'missing_url' };
+  }
+  // IMPORTANTE: para que realmente actualice en Sheets, tu Apps Script debe
+  // reconocer 'mode=update' y el contenido de 'entry'. Ajusta allí.
+  const body = new URLSearchParams({
+    mode: 'update',
+    entry: JSON.stringify(entry)
+    // si en el futuro manejas un ID de fila: id: entry.id
+  });
+  try {
+    const res  = await fetch(url, { method:'POST', body });
+    const data = await res.json().catch(()=> ({}));
+    return { ok: !!(data && data.ok), data, status: res.status };
+  } catch (err) {
+    return { ok:false, reason:'network_error', error: err };
+  }
+}
+
+async function sendDeleteToSheets(id){
+  const url = window.GSHEET_WEBAPP_URL;
+  if (!url || !/^https:\/\/script\.google\.com\/macros\//.test(url)) {
+    return { ok:false, reason:'missing_url' };
+  }
+  const body = new URLSearchParams({
+    mode: 'delete',
+    id: id
+  });
+  try {
+    const res  = await fetch(url, { method:'POST', body });
+    const data = await res.json().catch(()=> ({}));
+    return { ok: !!(data && data.ok), data, status: res.status };
+  } catch (err) {
+    return { ok:false, reason:'network_error', error: err };
+  }
+}
+
     // --- Resumen de horas ---
     function recalcHours(passedTotal, passedMax){
       const numPeople = parseInt(document.getElementById('numPeople').value) || 0;
@@ -507,7 +718,7 @@ async function sendToSheets(records){
       if (!tbody) return;
 
       if (!timeEntries.length){
-        tbody.innerHTML = '<tr><td colspan="6">No hay registros.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9">No hay registros.</td></tr>';
         if (totalCell) totalCell.textContent = '0.00';
         return;
       }
@@ -516,6 +727,7 @@ async function sendToSheets(records){
       tbody.innerHTML = timeEntries.map((e, idx)=> `
 	  <tr>
 	    <td>${e.company || ''}</td>
+		<td>${e.cartera || 'Global'}</td>
 	    <td>${e.date || ''}</td>
 	    <td>${e.activity || '—'}</td>
 	    <td>${e.demand || '—'}</td>
@@ -529,60 +741,130 @@ async function sendToSheets(records){
 	  </tr>`).join('');
       if (totalCell) totalCell.textContent = total;
     }
-    function editEntry(idx){
-      const rec = timeEntries[idx];
-      if (!rec) return;
-      createActivityBlock({ demand: rec.demand || '', taskId: rec.taskId || '', hours: rec.hours });
-      timeEntries.splice(idx,1);
-      updateEntries();
-      showFeedback('✏ Registro cargado para edición');
-      window.scrollTo({ top: 0, behavior:'smooth' });
-    }
 
-    function deleteEntry(idx){
-      timeEntries.splice(idx,1);
-      updateEntries();
-      showFeedback('🗑 Registro eliminado');
-    }
+	function editEntry(idx){
+	  const rec = timeEntries[idx];
+	  if (!rec) return;
+	
+	  // Guardamos qué fila estamos editando
+	  editingIndex = idx;
+	  editingOriginalId = rec.id || null;
+	
+	  // Rellena cabecera
+	  const companyEl = document.getElementById('company');
+	  const dateEl    = document.getElementById('workDate');
+	  const peopleEl  = document.getElementById('numPeople');
+	  if (companyEl) companyEl.value = rec.company || '';
+	  if (dateEl)    dateEl.value    = rec.date || new Date().toISOString().split('T')[0];
+	  if (peopleEl)  peopleEl.value  = rec.num_people || 1;
+	
+	  // Limpia actividades y crea UNA con prefill
+	  const actsEl = document.getElementById('activitiesContainer');
+	  if (actsEl) actsEl.innerHTML = '';
+	  if (typeof activityCount !== 'undefined') activityCount = 0;
+	
+	  createActivityBlock({
+	    activity: rec.activity || '',
+	    cartera:  rec.cartera  || 'Global',
+	    demand:   rec.demand   || '',
+	    task:     rec.task     || '',
+	    subject:  rec.subject  || '',
+	    hours:    rec.hours    || 0
+	  });
+		
+	  recalcHours();
+		
+	  toggleEditUI(true);
+	  showFeedback('✏ Registro cargado para edición');
+	  window.scrollTo({ top: 0, behavior:'smooth' });
+	}
+
+
+	async function deleteEntry(idx){
+	  const rec = timeEntries[idx];
+	  if (!rec) return;
+	
+	  // Validaciones
+	  if (!rec.id) {
+	    // Registro antiguo sin ID: no podemos borrar de forma segura
+	    showError('Este registro no tiene ID en Sheets. No se puede eliminar automáticamente.');
+	    return;
+	  }
+	
+	  const okAsk = confirm('¿Eliminar este registro definitivamente?');
+	  if (!okAsk) return;
+	
+	  // Llamada al backend
+	  try {
+	    const delRes = await sendDeleteToSheets(rec.id);
+	    if (!delRes.ok) {
+	      if (delRes.reason === 'missing_url') {
+	        showError('⚠️ Falta configurar la URL del Web App');
+	      } else if (delRes.reason === 'network_error') {
+	        showError('⚠️ No se pudo conectar con el servidor');
+	      } else if (delRes.data && delRes.data.error === 'not_found') {
+	        showError('⚠️ ID no encontrado en Sheets (ya estaba eliminado o no existe).');
+	      } else {
+	        showError('⚠️ El servidor no confirmó el borrado');
+	        console.log('Diagnóstico borrado:', delRes);
+	      }
+	      return;
+	    }
+	
+	    // Si el servidor confirmó, ahora sí eliminamos en la UI
+	    timeEntries.splice(idx, 1);
+	    updateEntries();
+	    showFeedback('🗑 Registro eliminado');
+	  } catch (err) {
+	    console.error(err);
+	    showError('⚠️ Error inesperado al eliminar');
+	  }
+	}
+
 
   // Hook que recibe la lista desde Apps Script
-function populateDemandCodes(list){
-  // list puede venir como: [{Demanda:'DMND0001', Asunto:'Implantación OVA'}, ...]
-  // o en minúsculas; aceptamos ambas.
-  window.DEMAND_CODES = [];
-  window.DEMAND_MAP   = {}; // code -> subject
+	function populateDemandCodes(list){
+	  window.DEMAND_CODES = [];
+	  window.DEMAND_MAP   = {};
+	  (Array.isArray(list) ? list : []).forEach(item => {
+	    const code = item.Demanda || item.demanda || item.code || '';
+	    const subj = item.Asunto  || item.asunto  || item.subject || '';
+	    if (code) {
+	      window.DEMAND_CODES.push(code);
+	      window.DEMAND_MAP[code] = subj || '';
+	    }
+	  });
+	
+	  console.log('DEMAND_CODES cargados:', window.DEMAND_CODES.length);
+	  window.dispatchEvent(new CustomEvent('demandcodes:ready'));
+	
+	  document.querySelectorAll('.activity-block').forEach(block => {
+	    const activity = block.querySelector('.activity')?.value;
+	    if (activity === 'Delivery') {
+	      const demandSelect = block.querySelector('.demand');
+	      const subjectInput = block.querySelector('.subject');
+	      fillOptions(demandSelect, window.DEMAND_CODES);
+	      demandSelect.disabled = false;
+	      const code = demandSelect.value || '';
+	      subjectInput.value   = (window.DEMAND_MAP[code] || '');
+	      subjectInput.readOnly = !!subjectInput.value;
+	    }
+	  });
+	}
 
-  (Array.isArray(list) ? list : []).forEach(item => {
-    const code = item.Demanda || item.demanda || item.code || '';
-    const subj = item.Asunto  || item.asunto  || item.subject || '';
-    if (code) {
-      window.DEMAND_CODES.push(code);
-      window.DEMAND_MAP[code] = subj || '';
-    }
-  });
-
-  console.log('DEMAND_CODES cargados:', window.DEMAND_CODES.length);
-  window.dispatchEvent(new CustomEvent('demandcodes:ready'));
-
-  // Si ya hay bloques "Delivery" en pantalla, hidrata sus selects + asunto
-  document.querySelectorAll('.activity-block').forEach(block => {
-    const activity = block.querySelector('.activity')?.value;
-    if (activity === 'Delivery') {
-      const demandSelect = block.querySelector('.demand');
-      const subjectInput = block.querySelector('.subject');
-
-      // Rellena opciones de códigos
-      fillOptions(demandSelect, window.DEMAND_CODES);
-      demandSelect.disabled = false;
-
-      // Si ya había un code elegido, refresca el asunto desde el MAP
-      const code = demandSelect.value || '';
-      subjectInput.value   = (window.DEMAND_MAP[code] || '');
-      subjectInput.readOnly = !!subjectInput.value; // bloquea si hay mapeo
-    }
-  });
-}
-
+	function cancelEdit(){
+	  editingIndex = null;
+	  editingOriginalId = null; 
+	  toggleEditUI(false);
+	  const actsEl = document.getElementById('activitiesContainer');
+	  if (actsEl) actsEl.innerHTML = '';
+	  if (typeof activityCount !== 'undefined') activityCount = 0;
+	  createActivityBlock();
+	  const dateEl = document.getElementById('workDate');
+	  if (dateEl) dateEl.value = new Date().toISOString().split('T')[0];
+	  const peopleEl = document.getElementById('numPeople');
+	  if (peopleEl) peopleEl.value = 1;
+	}
 
  // Crear el primer bloque al cargar y configurar escuchas
   document.addEventListener('DOMContentLoaded', () => {
@@ -601,7 +883,10 @@ function populateDemandCodes(list){
     if (actsEl) actsEl.addEventListener('input', (e) => {
       if (e.target.classList.contains('hours')) recalcHours();
     });
+	toggleEditUI(false);
   });
+
+  // Asegura que las funciones referenciadas en atributos HTML existan en window
 
 // Asegura que las funciones referenciadas en atributos HTML existan en window
 window.addActivityBlock  = addActivityBlock;
@@ -622,24 +907,6 @@ if (typeof onTaskChange === 'function') {
 
 // (Opcional) para el loader JSONP de códigos
 if (typeof populateDemandCodes === 'function') window.populateDemandCodes = populateDemandCodes;
-function onTaskChange(selectEl){
-  const parent       = selectEl.closest('.activity-block');
-  const activity     = parent.querySelector('.activity')?.value;
-  const demandSelect = parent.querySelector('.demand');
-  const subjectInput = parent.querySelector('.subject');
-
-  // En Soporte/Calidad la tarea está habilitada; usamos el texto de la opción como sugerencia de asunto
-  if (activity === 'Soporte' || activity === 'Calidad') {
-    const txt = selectEl.options[selectEl.selectedIndex]?.text || '';
-    subjectInput.value   = txt;
-    subjectInput.readOnly = false; // editable por el usuario
-    if (demandSelect) demandSelect.disabled = true; // coherente con la lógica de actividad
-  }
-  // Para el resto de actividades no hacemos nada especial
-}
-
-// Alias para compatibilidad si el HTML aún llama updateTarea(...)
-window.updateTarea = onTaskChange;
 
 async function loadCodes(){
   const url = window.GSHEET_WEBAPP_URL + '?resource=codes&_=' + Date.now();
@@ -671,7 +938,37 @@ async function loadCodes(){
   }
 }
 document.addEventListener('DOMContentLoaded', loadCodes);
+	
+  function $(sel){ return document.querySelector(sel); }
+  function setVal(sel, v){ const el=$(sel); if(el) el.value = (v ?? ''); }
+
+  // Para selects o inputs con datalist. Si el valor no existe en el select, lo crea.
+  function setSelectOrDatalist(sel, v){
+    const el = $(sel); if(!el) return;
+    if (el.tagName === 'SELECT'){
+      const opt = [...el.options].find(o => (o.value == v || o.text == v));
+      if (opt) el.value = opt.value;
+      else {
+        const o = new Option(v, v, true, true);
+        el.add(o); el.value = v;
+      }
+    } else {
+      el.value = v ?? '';
+    }
+  }
+
+function toggleEditUI(on){
+  const saveBtn   = document.getElementById('btnSave');
+  const cancelBtn = document.getElementById('cancelEditBtn');
+  if (!saveBtn || !cancelBtn) return;
+  if (on){
+    saveBtn.textContent = 'Guardar cambios';
+    cancelBtn.classList.remove('hidden');
+  } else {
+    saveBtn.textContent = '💾 Guardar Registro';
+    cancelBtn.classList.add('hidden');
+  }
+}
 </script>
 </body>
 </html>
-
