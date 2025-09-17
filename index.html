@@ -96,8 +96,8 @@
       <div id="formError" class="error">⚠️ Revisa los campos marcados o la suma de horas.</div>
     </div>
 
-<h2 style="margin: 22px 0 8px;">Registros</h2>
-<div class="table-wrap">
+<h2 id="recordsTitle" style="margin: 22px 0 8px;">Registros</h2>
+<div id="recordsSection" class="table-wrap" hidden>
   <table class="table" aria-label="Tabla de registros">
     <thead>
 	  <tr>
@@ -128,11 +128,11 @@
 
 <script>
 // URL de tu Web App de Google Apps Script
-window.GSHEET_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbxXFXpSMpmWJT7OJDYaUK416WGNwujWpGVpYpQpPXsqgmz4oOE7gIUEjgI-YLFsHOiW/exec";
+window.GSHEET_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbzlsdPB0GD5-IusHpG8pHMkUuxge0PFJP6XdlYyeU1IfQBuHYxUV0npjNoZH8x6ML1Z/exec";
 
 const SUBTASKS = {
-  Soporte: ['Incidencias', 'Peticiones', 'Consultas'],
-  Calidad: ['QA Delivery', 'QA Estimaciones', 'Configuración']
+  Soporte: ['Revisión tickets', 'Atención telefónica', 'Incidencias'],
+  Calidad: ['Auditoría interna', 'Indicadores', 'Documentación']
 };
 
 let timeEntries = [];
@@ -568,42 +568,34 @@ async function validateAndSave() {
 	}
 	
 	if (sendRes.ok){
+	  // Limpia estado de edición si aplica
 	  if (isEdit){
-	    // Sustituimos la fila editada SOLO tras confirmación del servidor
-	    const updated = { ...records[0], id: editingOriginalId }; // <-- conserva id
-	    timeEntries[editingIndex] = updated;
 	    editingIndex = null;
-	    editingOriginalId = null;           // <-- limpia el estado
+	    editingOriginalId = null;
 	    toggleEditUI(false);
-	  } else {
-	    // Altas normales, SOLO tras confirmación del servidor
-	    // Copiamos los ids devueltos por el backend
-	    const ids = (sendRes.data && Array.isArray(sendRes.data.ids)) ? sendRes.data.ids : [];
-	    records.forEach((r, i) => { r.id = ids[i] || r.id || null; });
-	    timeEntries.push(...records);
 	  }
-	  updateEntries();
 	  recalcHours(totalHours, maxHours);
 	  showFeedback('📤 Guardado en servidor');
 	  resetFormAfterSave();
+	  await refreshWeekForCurrentCompany(); // ← recarga desde backend la semana actual
 	} else if (sendRes.reason === 'missing_url') {
-	  showError('⚠️ Falta configurar la URL del Web App');
-	} else if (sendRes.reason === 'network_error') {
-	  showError('⚠️ No se pudo conectar con el servidor');
-	} else if (sendRes.reason === 'timeout') {
-	  showError('⚠️ Sin confirmación del servidor (timeout)');
-	} else {
-	  showError('⚠️ El servidor no confirmó el guardado');
-	  console.log('Diagnóstico envío:', sendRes);
-	}
-
-	} catch (err) {
-	  console.error(err);
-	  showError('⚠️ Error inesperado al guardar');
-	} finally {
-	  if (btnSave) { btnSave.disabled = false; btnSave.textContent = '💾 Guardar Registro'; }
-	}
- }
+		  showError('⚠️ Falta configurar la URL del Web App');
+		} else if (sendRes.reason === 'network_error') {
+		  showError('⚠️ No se pudo conectar con el servidor');
+		} else if (sendRes.reason === 'timeout') {
+		  showError('⚠️ Sin confirmación del servidor (timeout)');
+		} else {
+		  showError('⚠️ El servidor no confirmó el guardado');
+		  console.log('Diagnóstico envío:', sendRes);
+		}
+	
+		} catch (err) {
+		  console.error(err);
+		  showError('⚠️ Error inesperado al guardar');
+		} finally {
+		  if (btnSave) { btnSave.disabled = false; btnSave.textContent = '💾 Guardar Registro'; }
+		}
+	 }
 
 
     // Envío sin CORS: form + iframe (robusto: autocrea DOM si falta)
@@ -699,6 +691,74 @@ async function sendDeleteToSheets(id){
     return { ok:false, reason:'network_error', error: err };
   }
 }
+
+/** ===== Semana en curso (Europe/Madrid) y fetch ===== **/
+function currentWeekRangeMadrid() {
+  // Lunes (0) a sábado (5). Si es domingo, mostramos la semana que acaba de terminar.
+  const tz = 'Europe/Madrid';
+  const today = new Date();
+  const dowMonBase = (today.getDay() + 6) % 7; // lunes=0,... domingo=6
+  const monday = new Date(today);
+  monday.setDate(today.getDate() - (dowMonBase === 6 ? 6 : dowMonBase));
+  const saturday = new Date(monday);
+  saturday.setDate(monday.getDate() + 5);
+
+  const toIso = d => new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())).toISOString().slice(0,10);
+  const fmt = new Intl.DateTimeFormat('es-ES',{ day:'2-digit', month:'short', year:'numeric', timeZone: tz });
+
+  return {
+    startIso: toIso(monday),
+    endIso: toIso(saturday),
+    startLabel: fmt.format(monday),
+    endLabel: fmt.format(saturday)
+  };
+}
+
+function setRecordsTitleRange(startLabel, endLabel){
+  const h = document.getElementById('recordsTitle');
+  const company = document.getElementById('company').value;
+  if (h) h.textContent = `Registros guardados esta semana por ${company} (${startLabel} – ${endLabel})`;
+}
+
+async function fetchWeekRecords(company){
+  const { startIso, endIso, startLabel, endLabel } = currentWeekRangeMadrid();
+  setRecordsTitleRange(startLabel, endLabel);
+
+  const qs = new URLSearchParams({
+    resource: 'listWeek',
+    company,
+    start: startIso,
+    end: endIso
+  });
+  const url = window.GSHEET_WEBAPP_URL + '?' + qs.toString();
+  const res = await fetch(url, { method:'GET', cache:'no-store' });
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || 'No se pudo cargar la semana');
+  return json.data || [];
+}
+
+async function refreshWeekForCurrentCompany(){
+  const company = document.getElementById('company').value?.trim();
+  const section = document.getElementById('recordsSection');
+  const tbody = document.getElementById('entriesTbody');
+  if (!company){
+    if (section) section.hidden = true;
+    if (tbody) tbody.innerHTML = '<tr><td colspan="9">No hay registros.</td></tr>';
+    document.getElementById('entriesTotal').textContent = '0.00';
+    return;
+  }
+  if (section) section.hidden = false;
+  tbody.innerHTML = '<tr><td colspan="9">Cargando…</td></tr>';
+
+  try{
+    const rows = await fetchWeekRecords(company);
+    timeEntries = rows;              // ← fuente de la tabla pasa a ser el backend
+    updateEntries();
+  } catch (e){
+    tbody.innerHTML = `<tr><td colspan="9">Error: ${e.message}</td></tr>`;
+  }
+}
+	
 
     // --- Resumen de horas ---
     function recalcHours(passedTotal, passedMax){
@@ -813,9 +873,8 @@ async function sendDeleteToSheets(id){
 	    }
 	
 	    // Si el servidor confirmó, ahora sí eliminamos en la UI
-	    timeEntries.splice(idx, 1);
-	    updateEntries();
-	    showFeedback('🗑 Registro eliminado');
+		await refreshWeekForCurrentCompany();
+		showFeedback('🗑 Registro eliminado');
 	  } catch (err) {
 	    console.error(err);
 	    showError('⚠️ Error inesperado al eliminar');
@@ -885,9 +944,13 @@ async function sendDeleteToSheets(id){
       if (e.target.classList.contains('hours')) recalcHours();
     });
 	toggleEditUI(false);
-  });
+  const companyEl = document.getElementById('company');
+  if (companyEl){
+    companyEl.addEventListener('change', refreshWeekForCurrentCompany);
+	}
+  if (companyEl && companyEl.value) refreshWeekForCurrentCompany();
+});
 
-  // Asegura que las funciones referenciadas en atributos HTML existan en window
 
 // Asegura que las funciones referenciadas en atributos HTML existan en window
 window.addActivityBlock  = addActivityBlock;
@@ -972,7 +1035,4 @@ function toggleEditUI(on){
 }
 </script>
 </body>
-
 </html>
-
-
