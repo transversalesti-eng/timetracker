@@ -131,8 +131,8 @@
 window.GSHEET_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbzlsdPB0GD5-IusHpG8pHMkUuxge0PFJP6XdlYyeU1IfQBuHYxUV0npjNoZH8x6ML1Z/exec";
 
 const SUBTASKS = {
-  Soporte: ['Revisión tickets', 'Atención telefónica', 'Incidencias'],
-  Calidad: ['Auditoría interna', 'Indicadores', 'Documentación']
+  Soporte: ['Incidencias', 'Peticiones', 'Consultas'],
+  Calidad: ['QA Delivery', 'QA Estimaciones', 'Configuración']
 };
 
 let timeEntries = [];
@@ -209,10 +209,10 @@ function fillOptions(selectEl, options){
 	      </div>
 	
 	      <div class="form-group" style="flex:0 1 180px; min-width:160px;">
-	        <label>Código de demanda</label>
-	        <select class="demand" aria-label="Código de demanda" onchange="onDemandChange(this)" disabled>
-	          <option value="" selected>— Selecciona código —</option>
-	        </select>
+			<label>Código de demanda</label>
+			<input class="demand" list="demandCodesList" aria-label="Código de demanda"
+		       oninput="onDemandChange(this)" disabled placeholder="Buscar o pegar código…" />
+
 	      </div>
 	
 	      <div class="form-group" style="flex:0 1 220px; min-width:180px;">
@@ -265,14 +265,13 @@ function fillOptions(selectEl, options){
 		  // 3) Código de demanda (si actividad=Delivery) y asunto por mapeo
 		  const demandSelect = block.querySelector('.demand');
 		  const subjectInput = block.querySelector('.subject');
-		  if (demandSelect && prefill.demand){
-		    if (Array.isArray(window.DEMAND_CODES) && window.DEMAND_CODES.length){
-		      fillOptions(demandSelect, window.DEMAND_CODES);
-		      demandSelect.disabled = false;
-		    }
-		    demandSelect.value = prefill.demand;
-		    onDemandChange(demandSelect);
-		  }
+		if (demandSelect && prefill.demand){
+		  demandSelect.disabled = false;           // es un <input>
+		  demandSelect.value = prefill.demand;     // escribir el código directamente
+		  onDemandChange(demandSelect);            // aplicará el mapeo de asunto si existe
+		}
+
+
 		  // 4) Tarea (si procede)
 		  const taskSelect = block.querySelector('.task');
 		  if (taskSelect){
@@ -325,31 +324,36 @@ function onActivityChange(selectEl){
   const v = selectEl.value;
 
   switch (v) {
-	case 'Delivery': {
-	  const hydrate = () => {
-	    fillOptions(demandSelect, window.DEMAND_CODES);
-	    demandSelect.disabled = false;
-	    // asunto se bloqueará al elegir demanda si hay mapeo
-	  };
-	
-	  if (Array.isArray(window.DEMAND_CODES) && window.DEMAND_CODES.length > 0) {
-	    hydrate();
-	  } else {
-	    demandSelect.disabled = true;
-	    demandSelect.innerHTML = '<option value="">Cargando códigos…</option>';
-	    window.addEventListener('demandcodes:ready', hydrate, { once:true });
-	  }
-	  break;
-	}
+case 'Delivery': {
+  const hydrate = () => {
+    // Solo habilitar el <input>; el datalist se llena en populateDemandCodes()
+    demandSelect.disabled = false;
+    // Si el usuario ya escribió algo que tiene mapeo, bloqueamos asunto:
+    const code = demandSelect.value || '';
+    const mapped = (window.DEMAND_MAP && window.DEMAND_MAP[code]) || '';
+    subjectInput.value    = mapped || subjectInput.value;
+    subjectInput.readOnly = !!mapped;
+  };
+
+  // En esta versión demandSelect es un <input>, no un <select>
+  if (Array.isArray(window.DEMAND_CODES) && window.DEMAND_CODES.length > 0) {
+    hydrate();
+  } else {
+    demandSelect.disabled = true;
+    // Espera a que carguen los códigos
+    window.addEventListener('demandcodes:ready', hydrate, { once:true });
+  }
+  break;
+}
 
 
     case 'Soporte':
 	  // Tarea habilitada (3 opciones), Código de demanda deshabilitado, Asunto libre
 	  taskSelect.disabled   = false;
 	  fillOptions(taskSelect, SUBTASKS.Soporte);
-	
+
 	  demandSelect.disabled = true;
-	  fillOptions(demandSelect, []);
+	  demandSelect.value = '';
 	
 	  subjectInput.readOnly = false;
 	  break;
@@ -357,7 +361,8 @@ function onActivityChange(selectEl){
     case 'Proveedores':
       // Todo bloqueado salvo Asunto libre
       taskSelect.disabled   = true;
-      demandSelect.disabled = true;
+	  demandSelect.disabled = true;
+	  demandSelect.value = '';
       subjectInput.readOnly = false;
       break;
 
@@ -366,7 +371,8 @@ function onActivityChange(selectEl){
     case 'Coordinación':
       // Tarea y Código de demanda deshabilitados, Asunto libre
       taskSelect.disabled   = true;
-      demandSelect.disabled = true;
+	  demandSelect.disabled = true;
+	  demandSelect.value = '';
       subjectInput.readOnly = false;
       break;
 
@@ -375,6 +381,7 @@ function onActivityChange(selectEl){
       taskSelect.disabled   = false;
       fillOptions(taskSelect, SUBTASKS.Calidad);
       demandSelect.disabled = true;
+	  demandSelect.value = '';
       subjectInput.readOnly = false;
       break;
 
@@ -396,24 +403,48 @@ function onActivityChange(selectEl){
 	}
 }
 	
-	function onDemandChange(selectEl){
-	  const parent       = selectEl.closest('.activity-block');
-	  const activity     = parent.querySelector('.activity').value;
-	  const subjectInput = parent.querySelector('.subject');
-	  const code         = selectEl.value || '';
-	
-	  // Si hay mapeo en CodigosDemanda, usarlo
-	  const mapped = (window.DEMAND_MAP && window.DEMAND_MAP[code]) || '';
-	
-	  if (activity === 'Delivery') {
-	    subjectInput.value   = mapped || '';
-	    subjectInput.readOnly = !!mapped; // bloquear solo cuando existe mapeo
-	  } else {
-	    // Para otras actividades, dejamos asunto libre
-	    if (mapped) subjectInput.value = mapped; // opción: sugerir si existe coincidencia
-	    subjectInput.readOnly = false;
-	  }
-	}
+function onDemandChange(inputEl){
+  const parent       = inputEl.closest('.activity-block');
+  const activity     = parent.querySelector('.activity')?.value || '';
+  const subjectInput = parent.querySelector('.subject');
+  const code         = (inputEl.value || '').trim();
+
+  if (!subjectInput) return;
+
+  // Solo exigimos código válido cuando la actividad es Delivery
+  if (activity === 'Delivery') {
+    const list = Array.isArray(window.DEMAND_CODES) ? window.DEMAND_CODES : [];
+    const isValid = code && list.includes(code);
+
+    if (!isValid) {
+      inputEl.style.borderColor = 'var(--error)';
+      inputEl.value = ''; // blanquear campo
+      subjectInput.value = '';
+      subjectInput.readOnly = false;
+      showError('Selecciona un código de demanda válido de la lista.');
+      return;
+    } else {
+      inputEl.style.borderColor = '';
+    }
+  }
+
+  // Mapeo de asunto (si existe)
+  const mapped = (window.DEMAND_MAP && window.DEMAND_MAP[code]) || '';
+  if (activity === 'Delivery') {
+    if (mapped) {
+      subjectInput.value    = mapped;
+      subjectInput.readOnly = true;
+    } else {
+      subjectInput.readOnly = false;
+    }
+  } else {
+    if (mapped && !subjectInput.value) subjectInput.value = mapped;
+    subjectInput.readOnly = false;
+  }
+}
+
+
+
 
 
 
@@ -481,11 +512,22 @@ async function validateAndSave() {
     }
 
     // 2) Si la actividad es "Delivery" => requerir código de demanda
-    if (activity === 'Delivery' && !demand) {
-      hasFieldError = true;
-      const demandSelect = block.querySelector('.demand');
-      if (demandSelect) demandSelect.style.borderColor = 'var(--error)';
-    } else {
+// 2) Si la actividad es "Delivery" => requerir código de demanda válido del datalist
+if (activity === 'Delivery') {
+  const list = Array.isArray(window.DEMAND_CODES) ? window.DEMAND_CODES : [];
+  const demandInput = block.querySelector('.demand');
+  const isValid = demand && list.includes(demand);
+
+  if (!isValid) {
+    hasFieldError = true;
+    if (demandInput) {
+      demandInput.style.borderColor = 'var(--error)';
+      demandInput.value = ''; // blanquear campo
+    }
+  } else {
+    if (demandInput) demandInput.style.borderColor = '';
+  }
+} else {
       const demandSelect = block.querySelector('.demand');
       if (demandSelect) demandSelect.style.borderColor = '';
     }
@@ -540,10 +582,11 @@ async function validateAndSave() {
 
 
   // Si hubo errores de campo, no enviamos
-  if (hasFieldError) {
-    showError('Revisa los campos resaltados en rojo.');
-    return;
-  }
+	if (hasFieldError) {
+	  showError('Revisa los campos resaltados en rojo. Para "Delivery", selecciona un código de demanda válido de la lista.');
+	  return;
+	}
+
 	// BLOQUEO por exceso de horas (suma de actividades > numPersonas*8)
 	if (totalHours > maxHours) {
 	  recalcHours(totalHours, maxHours); // refresca semáforo
@@ -886,6 +929,7 @@ async function refreshWeekForCurrentCompany(){
 	function populateDemandCodes(list){
 	  window.DEMAND_CODES = [];
 	  window.DEMAND_MAP   = {};
+	
 	  (Array.isArray(list) ? list : []).forEach(item => {
 	    const code = item.Demanda || item.demanda || item.code || '';
 	    const subj = item.Asunto  || item.asunto  || item.subject || '';
@@ -895,19 +939,27 @@ async function refreshWeekForCurrentCompany(){
 	    }
 	  });
 	
+	  // Rellenar el datalist global
+	  const dl = document.getElementById('demandCodesList');
+	  if (dl) {
+	    dl.innerHTML = window.DEMAND_CODES.map(c => `<option value="${c}"></option>`).join('');
+	  }
+	
 	  console.log('DEMAND_CODES cargados:', window.DEMAND_CODES.length);
 	  window.dispatchEvent(new CustomEvent('demandcodes:ready'));
 	
+	  // Si ya hay bloques en Delivery y el usuario tenía algo escrito, aplica mapeo
 	  document.querySelectorAll('.activity-block').forEach(block => {
 	    const activity = block.querySelector('.activity')?.value;
-	    if (activity === 'Delivery') {
-	      const demandSelect = block.querySelector('.demand');
-	      const subjectInput = block.querySelector('.subject');
-	      fillOptions(demandSelect, window.DEMAND_CODES);
-	      demandSelect.disabled = false;
-	      const code = demandSelect.value || '';
-	      subjectInput.value   = (window.DEMAND_MAP[code] || '');
-	      subjectInput.readOnly = !!subjectInput.value;
+	    const demandInput = block.querySelector('.demand');
+	    const subjectInput = block.querySelector('.subject');
+	    if (activity === 'Delivery' && demandInput) {
+	      const code = demandInput.value || '';
+	      const mapped = window.DEMAND_MAP[code] || '';
+	      if (mapped) {
+	        subjectInput.value = mapped;
+	        subjectInput.readOnly = true;
+	      }
 	    }
 	  });
 	}
@@ -924,6 +976,7 @@ async function refreshWeekForCurrentCompany(){
 	  if (dateEl) dateEl.value = new Date().toISOString().split('T')[0];
 	  const peopleEl = document.getElementById('numPeople');
 	  if (peopleEl) peopleEl.value = 1;
+	  recalcHours(); 
 	}
 
  // Crear el primer bloque al cargar y configurar escuchas
@@ -1034,5 +1087,6 @@ function toggleEditUI(on){
   }
 }
 </script>
+<datalist id="demandCodesList"></datalist>
 </body>
 </html>
