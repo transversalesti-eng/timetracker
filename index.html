@@ -103,6 +103,7 @@
 	  <tr>
 	    <th>Empresa</th>
 		<th>Cartera</th>
+		<th>Aplicación</th>
 	    <th>Fecha</th>
 	    <th>Actividad</th>
 	    <th>Código de demanda</th>
@@ -128,7 +129,7 @@
 
 <script>
 // URL de tu Web App de Google Apps Script
-window.GSHEET_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbzlsdPB0GD5-IusHpG8pHMkUuxge0PFJP6XdlYyeU1IfQBuHYxUV0npjNoZH8x6ML1Z/exec";
+window.GSHEET_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbyAc95TYXyOVJFrS0FZ5nd7vj0DbWrJsmdTz6_P5qdgSNYPtIafdc6od8hes5PyPKeJ/exec";
 
 const SUBTASKS = {
   Soporte: ['Incidencias', 'Peticiones', 'Consultas'],
@@ -157,8 +158,35 @@ const CARTERAS = [
   'EN.Innovación','EN.Marketing','EN.Oficina de Estudios CEO','EN.QSE','EN.RRHH',
   'EN.Seguridad','EN.Sostenibilidad','EN.Supply Chain',
   'EN.TIC - Aplicaciones','EN.TIC - Arq. Tecnológica y Gobierno IT','EN.TIC - Comunicaciones',
-  'EN.TIC - Demanda','EN.TIC - Infraestructuras','EN.TIC - Puesto de Usuario','EN.TIC - Servicios de Usuario'
+  'EN.TIC - Demanda','EN.TIC - Infraestructuras','EN.TIC - Puesto de Usuario','EN.TIC - Servicios de Usuario', 'EN.DigitalHub'
 ];
+
+const APP_TO_CARTERA = {
+  "AAE: JURI": "EN.Asesoria Jurídica",
+  "AAE: Seguimiento y Control de Contratos de Venta AE": "EN.Financiero - Finanzas",
+  "AAE: SIRO - IMDI": "EN.Innovación",
+  "CIRCE": "EN.Calidad y Seguridad",
+  "Enable Now": "EN.Supply Chain",
+  "Enablon: Enablon": "EN.Calidad y Seguridad",
+  "Expediting": "EN.Supply Chain",
+  "GIM RRHH": "EN.RRHH",
+  "GoSupply": "EN.Supply Chain",
+  "GreenVille": "EN.Sostenibilidad",
+  "Headcount Budgeting Tool": "EN.RRHH",
+  "Kaleido LMS": "EN.Supply Chain",
+  "LumApps": "EN.Supply Chain",
+  "MAP (Managing AE Processes)": "EN.Calidad y Seguridad",
+  "Metaverso": "EN.DigitalHub",               // 👈 especificado
+  "Organimi": "EN.RRHH",
+  "Perfil de Contratista": "EN.Supply Chain",
+  "Plan Acción AE": "EN.Oficina de Estudios CEO",
+  "Procurement": "EN.Supply Chain",
+  "SAP Ariba Contracts - CLM": "EN.Supply Chain",
+  "SCS: SCS": "EN.Supply Chain",
+  "SO99+: SO99+": "EN.Supply Chain",
+  "Web Soluciones Acciona Energia": "EN.Marketing",
+  "Wordly": "EN.Supply Chain"
+};
 
 function fillOptions(selectEl, options){
   const placeholder = '<option value="" selected>— Selecciona —</option>';
@@ -192,8 +220,8 @@ function fillOptions(selectEl, options){
 	  block.innerHTML = `
 	    <h3><span class="badge">📌 Actividad ${activityCount}</span></h3>
 	    <div class="form-row" style="align-items:flex-end;">
-	
-	      <div class="form-group" style="flex:0 1 190px; min-width:160px;">
+
+	      <div class="form-group" style="flex:0 1 220px; min-width:160px;">
 	        <label>Actividad</label>
 	        <select class="activity" aria-label="Actividad" onchange="onActivityChange(this)">
 	          <option value="" selected>— Selecciona actividad —</option>
@@ -201,13 +229,19 @@ function fillOptions(selectEl, options){
 	        </select>
 	      </div>
 	
-	      <div class="form-group" style="flex:0 1 200px; min-width:160px;">
+	      <div class="form-group" style="flex:0 1 220px; min-width:160px;">
 	        <label>Cartera</label>
-	        <select class="portfolio" aria-label="Cartera">
+	        <select class="portfolio" aria-label="Cartera" disabled>
 	          ${CARTERAS.map(v => `<option value="${v}">${v}</option>`).join('')}
 	        </select>
 	      </div>
-	
+
+		  <div class="form-group" style="flex:0 1 240px; min-width:180px;">
+		    <label>Aplicación (opcional)</label>
+		    <input class="app" list="appsList" aria-label="Aplicación"
+				  oninput="onAppChange(this)" placeholder="Buscar o pegar…" disabled />
+		  </div>
+
 	      <div class="form-group" style="flex:0 1 180px; min-width:160px;">
 			<label>Código de demanda</label>
 			<input class="demand" list="demandCodesList" aria-label="Código de demanda"
@@ -231,14 +265,29 @@ function fillOptions(selectEl, options){
 	        <label>Horas</label>
 	        <input type="number" class="hours" min="0" step="0.25" aria-label="Horas" />
 	      </div>
-	
-	      <div class="form-group" style="flex:0 0 120px; text-align:right;">
-	        <button type="button" class="btn-secondary" title="Eliminar actividad"
-	          onclick="this.closest('.activity-block').remove(); recalcHours();">🗑 Eliminar</button>
-	      </div>
+		  
+		<div class="form-group" style="flex:0 0 120px; margin-left:auto; text-align:right;">
+		  <button type="button" class="btn-secondary" title="Eliminar actividad"
+		    onclick="this.closest('.activity-block').remove(); recalcHours();">🗑 Eliminar</button>
+		</div>
 	    </div>`;
 	
 	  container.appendChild(block);
+
+		// Forzar Cartera deshabilitada al crear el bloque
+		const portfolio = block.querySelector('.portfolio');
+		if (portfolio){
+		  portfolio.disabled = true;
+		  portfolio.value = 'Global'; // opcional
+		}
+		
+		// (si tienes el campo Aplicación)
+		const appInput = block.querySelector('.app');
+		if (appInput){
+		  appInput.disabled = true;   // hasta que haya actividad
+		  appInput.value = '';
+		}
+
 	
 	  // Inicializar según genéricas
 	  const activitySelect = block.querySelector('.activity');
@@ -262,6 +311,14 @@ function fillOptions(selectEl, options){
 		    }
 		    portfolio.value = prefill.cartera;
 		  }
+			// 2b) Aplicación
+			const appInput = block.querySelector('.app');
+			if (appInput && prefill.application) {
+			  appInput.value = prefill.application;
+			  // Aplica mapeo/bloqueo de cartera si procede
+			  if (typeof onAppChange === 'function') onAppChange(appInput, {silent:true});
+			}
+			
 		  // 3) Código de demanda (si actividad=Delivery) y asunto por mapeo
 		  const demandSelect = block.querySelector('.demand');
 		  const subjectInput = block.querySelector('.subject');
@@ -312,6 +369,9 @@ function onActivityChange(selectEl){
   const demandSelect = parent.querySelector('.demand');
   const taskSelect   = parent.querySelector('.task');
   const subjectInput = parent.querySelector('.subject');
+  const portfolio = parent.querySelector('.portfolio');
+  const appInput     = parent.querySelector('.app');
+  const v = selectEl.value || '';
 
   // reset básico
   fillOptions(taskSelect, []);
@@ -321,7 +381,28 @@ function onActivityChange(selectEl){
   subjectInput.readOnly = false;
   subjectInput.value    = '';
 
-  const v = selectEl.value;
+	//gobernar cartera según actividad y aplicación
+// Sin actividad → Cartera deshabilitada y limpiamos Aplicación
+	if (!v){
+	  if (portfolio){
+	    portfolio.disabled = true;
+	    portfolio.value = 'Global'; // opcional
+	  }
+	  if (appInput){
+	    appInput.disabled = true;
+	    appInput.value = '';
+	  }
+	} else {
+	  // Con actividad → Cartera habilitada salvo que haya Aplicación con valor
+	  if (portfolio){
+	    const hasApp = !!(appInput && appInput.value && appInput.value.trim());
+	    portfolio.disabled = hasApp; // true si hay Aplicación (bloquea), false si no
+	  }
+	  if (appInput){
+	    appInput.disabled = false;
+	  }
+	}
+
 
   switch (v) {
 case 'Delivery': {
@@ -443,10 +524,49 @@ function onDemandChange(inputEl){
   }
 }
 
+function onAppChange(inputEl, opts){
+  const parent    = inputEl.closest('.activity-block');
+  const portfolio = parent.querySelector('.portfolio');
+  const value     = (inputEl.value || '').trim();
+  const appsDL    = document.getElementById('appsList');
+  const silent    = opts && opts.silent;
 
+  // Valida contra el datalist: debe existir exactamente una opción con ese value
+  const valid = !!(value && appsDL && [...appsDL.options].some(o => o.value === value));
 
+  if (!value) {
+    // Vaciado: re-habilita cartera y no impone valor
+    if (portfolio) portfolio.disabled = false;
+    if (!silent) { inputEl.style.borderColor = ''; }
+    return;
+  }
 
+  if (!valid) {
+    // Valor inválido: blanquea, re-habilita cartera y marca error
+    if (!silent) {
+      inputEl.style.borderColor = 'var(--error)';
+      showError('Selecciona una aplicación válida de la lista.');
+    }
+    inputEl.value = '';
+    if (portfolio) { portfolio.disabled = false; }
+    return;
+  } else {
+    inputEl.style.borderColor = '';
+  }
 
+  // Valor válido → mapeo de cartera + bloqueo cartera
+  const mapped = APP_TO_CARTERA[value] || 'Global';
+  if (portfolio) {
+    // Asegura que la opción existe en el select:
+    const exists = [...portfolio.options].some(o => o.value === mapped);
+    if (!exists) {
+      portfolio.insertAdjacentHTML('beforeend', `<option value="${mapped}">${mapped}</option>`);
+    }
+    portfolio.value = mapped;
+    portfolio.disabled = true; // 👈 bloquea al tener aplicación
+  }
+}
+window.onAppChange = onAppChange;
 
  // Limpia el formulario para una nueva captura
     function resetFormAfterSave(){
@@ -560,17 +680,40 @@ if (activity === 'Delivery') {
       if (actEl) actEl.style.borderColor = '';
     }
 
-    return {
-      company,
-      date,
-      num_people: numPeople,
-      activity,
-      demand,     // ← quedará vacío si actividad === 'Demanda'
-      task,
-      subject,
-      hours,
-      cartera     // ← nuevo campo, va siempre
-    };
+	// Leer aplicación
+	const appEl = block.querySelector('.app');
+	const application = (appEl?.value || '').trim();
+
+	// Validación: si hay aplicación, debe existir en el datalist
+	if (application) {
+		  const appsDL = document.getElementById('appsList');
+		  const isValidApp = !!(appsDL && [...appsDL.options].some(o => o.value === application));
+		  if (!isValidApp) {
+		    hasFieldError = true;
+		    if (appEl) {
+		      appEl.style.borderColor = 'var(--error)';
+		      appEl.value = ''; // blanquear
+		    }
+		  } else if (appEl) {
+		    appEl.style.borderColor = '';
+	  }
+	}
+	
+	// … (resto de validaciones ya existentes) …
+	
+	return {
+	  company,
+	  date,
+	  num_people: numPeople,
+	  activity,
+	  demand,
+	  task,
+	  subject,
+	  hours,
+	  cartera,
+	  application
+	};
+
   });
 
 	 const isEdit = (editingIndex !== null);
@@ -832,6 +975,7 @@ async function refreshWeekForCurrentCompany(){
 	  <tr>
 	    <td>${e.company || ''}</td>
 		<td>${e.cartera || 'Global'}</td>
+		<td>${e.application || '—'}</td>
 	    <td>${e.date || ''}</td>
 	    <td>${e.activity || '—'}</td>
 	    <td>${e.demand || '—'}</td>
@@ -1088,5 +1232,32 @@ function toggleEditUI(on){
 }
 </script>
 <datalist id="demandCodesList"></datalist>
+<datalist id="appsList">
+  <option value="AAE: JURI"></option>
+  <option value="AAE: Seguimiento y Control de Contratos de Venta AE"></option>
+  <option value="AAE: SIRO - IMDI"></option>
+  <option value="CIRCE"></option>
+  <option value="Enable Now"></option>
+  <option value="Enablon: Enablon"></option>
+  <option value="Expediting"></option>
+  <option value="GIM RRHH"></option>
+  <option value="GoSupply"></option>
+  <option value="GreenVille"></option>
+  <option value="Headcount Budgeting Tool"></option>
+  <option value="Kaleido LMS"></option>
+  <option value="LumApps"></option>
+  <option value="MAP (Managing AE Processes)"></option>
+  <option value="Metaverso"></option>
+  <option value="Organimi"></option>
+  <option value="Perfil de Contratista"></option>
+  <option value="Plan Acción AE"></option>
+  <option value="Procurement"></option>
+  <option value="SAP Ariba Contracts - CLM"></option>
+  <option value="SCS: SCS"></option>
+  <option value="SO99+: SO99+"></option>
+  <option value="Web Soluciones Acciona Energia"></option>
+  <option value="Wordly"></option>
+</datalist>
+  
 </body>
 </html>
