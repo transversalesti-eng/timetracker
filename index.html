@@ -245,7 +245,7 @@ function fillOptions(selectEl, options){
 	      <div class="form-group" style="flex:0 1 180px; min-width:160px;">
 			<label>Código de demanda</label>
 			<input class="demand" list="demandCodesList" aria-label="Código de demanda"
-		       oninput="onDemandChange(this)" disabled placeholder="Buscar o pegar código…" />
+		       onblur="onDemandChange(this)" disabled placeholder="Buscar o pegar código…" />
 
 	      </div>
 	
@@ -497,14 +497,13 @@ function onDemandChange(inputEl){
     const list = Array.isArray(window.DEMAND_CODES) ? window.DEMAND_CODES : [];
     const isValid = code && list.includes(code);
 
-    if (!isValid) {
-      inputEl.style.borderColor = 'var(--error)';
-      inputEl.value = ''; // blanquear campo
-      subjectInput.value = '';
-      subjectInput.readOnly = false;
-      showError('Selecciona un código de demanda válido de la lista.');
-      return;
-    } else {
+	if (!isValid) {
+	  inputEl.style.borderColor = 'var(--error)';
+	  subjectInput.value = '';
+	  subjectInput.readOnly = false;
+	  // sin showError aquí para no molestar; el error salta al guardar
+	  return;
+	} else {
       inputEl.style.borderColor = '';
     }
   }
