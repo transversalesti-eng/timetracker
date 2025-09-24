@@ -186,6 +186,7 @@ const APP_TO_CARTERA = {
   "SO99+: SO99+": "EN.Supply Chain",
   "Web Soluciones Acciona Energia": "EN.Marketing",
   "Wordly": "EN.Supply Chain"
+	//<------- Añade aquí----------->
 };
 
 function fillOptions(selectEl, options){
@@ -458,10 +459,10 @@ case 'Delivery': {
       break;
 
     case 'Calidad':
-      // Tarea habilitada (3 opciones), Código de demanda deshabilitado, Asunto libre
+      // Tarea habilitada (3 opciones), Código de demanda habilitado, Asunto libre
       taskSelect.disabled   = false;
       fillOptions(taskSelect, SUBTASKS.Calidad);
-      demandSelect.disabled = true;
+      demandSelect.disabled = false;
 	  demandSelect.value = '';
       subjectInput.readOnly = false;
       break;
@@ -562,7 +563,7 @@ function onAppChange(inputEl, opts){
       portfolio.insertAdjacentHTML('beforeend', `<option value="${mapped}">${mapped}</option>`);
     }
     portfolio.value = mapped;
-    portfolio.disabled = true; // 👈 bloquea al tener aplicación
+    portfolio.disabled = true; // 
   }
 }
 window.onAppChange = onAppChange;
