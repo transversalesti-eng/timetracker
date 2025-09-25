@@ -587,7 +587,7 @@ window.onAppChange = onAppChange;
 async function validateAndSave() {
   hideError();
   const numPeople = parseInt(document.getElementById('numPeople').value) || 0;
-  const maxHours = numPeople * 8;
+  const maxHours = numPeople * 40;
   let totalHours = 0;
 
   const activities = Array.from(document.querySelectorAll('.activity-block'));
@@ -730,7 +730,7 @@ if (activity === 'Delivery') {
 	  return;
 	}
 
-	// BLOQUEO por exceso de horas (suma de actividades > numPersonas*8)
+	// BLOQUEO por exceso de horas (suma de actividades > numPersonas*40)
 	if (totalHours > maxHours) {
 	  recalcHours(totalHours, maxHours); // refresca semáforo
 	  showError(`La suma de horas (${totalHours.toFixed(2)}) supera el máximo permitido (${maxHours.toFixed(2)}).`);
@@ -949,7 +949,7 @@ async function refreshWeekForCurrentCompany(){
     // --- Resumen de horas ---
     function recalcHours(passedTotal, passedMax){
       const numPeople = parseInt(document.getElementById('numPeople').value) || 0;
-      const max = passedMax ?? numPeople * 8;
+      const max = passedMax ?? numPeople * 40;
       const total = passedTotal ?? Array.from(document.querySelectorAll('.hours')).reduce((s, el)=> s + (parseFloat(el.value)||0), 0);
       document.getElementById('totalHours').textContent = total.toFixed(2);
       document.getElementById('maxHours').textContent = max.toFixed(2);
