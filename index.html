@@ -16,7 +16,17 @@
     :root{--acciona:#e30613;--acciona-dark:#ba0510;--ok:#1a7f37;--error:#a40000;}
     *{box-sizing: border-box;}
     body {font-family: 'Segoe UI', system-ui, -apple-system, Arial, sans-serif;background:#f6f7f8;margin:0;color:#222;}
-    .container { max-width: 1000px; margin: 24px auto; padding: 24px; background:#fff; border-radius: 14px; box-shadow: 0 10px 25px rgba(0,0,0,.06); }
+    .container { 
+	  max-width: 1280px;     
+	  margin: 24px auto; 
+	  padding: 24px; 
+	  background:#fff; 
+	  border-radius: 14px; 
+	  box-shadow: 0 10px 25px rgba(0,0,0,.06); 
+	}
+	@media (min-width: 1440px){
+	  .container { max-width: 1360px; }
+	}
     .logo { display:flex; justify-content:center; margin-bottom: 8px; }
     .logo img { height: 76px; }
     h1 { text-align:center; color: var(--acciona); margin: 8px 0 24px; letter-spacing:.2px; }
@@ -74,11 +84,23 @@
           <option value="Nfq">Nfq</option>
 		  <option value="Aderen">Aderen</option>
         </select>
-      </div>
-      <div class="form-group">
-        <label for="workDate">Fecha</label>
-        <input type="date" id="workDate" aria-label="Fecha" />
-      </div>
+    </div>
+	<div class="form-group" style="min-width:260px;">
+	  <label for="workDate">Fecha</label>
+	  <div class="form-row" style="gap:8px; align-items:center; justify-content:flex-start;">
+	    <input type="date" id="workDate" aria-label="Fecha inicio" />
+	    <span id="rangeSep" class="hidden">—</span>
+	    <input type="date" id="workDateEnd" aria-label="Fecha fin" class="hidden" />
+	
+	    <!-- Checkbox alineado a la izquierda -->
+	    <label style="display:flex; gap:4px; align-items:center; margin:0; white-space:nowrap;">
+	      <input type="checkbox" id="isRange" />
+	      Seleccionar rango (máx. 5 días)
+	    </label>
+	  </div>
+	</div>
+
+
       <div class="form-group">
         <label for="numPeople">Número de personas</label>
         <input type="number" id="numPeople" min="1" value="1" aria-label="Número de personas" />
@@ -114,8 +136,9 @@
 	  </tr>
 	</thead>
 	<tbody id="entriesTbody">
-	  <tr><td colspan="9">No hay registros.</td></tr>
+	  <tr><td colspan="10">No hay registros.</td></tr>
 	</tbody>
+
     <tfoot>
       <tr>
         <td colspan="7" style="text-align:right;">Total</td>
@@ -571,10 +594,10 @@ window.onAppChange = onAppChange;
  // Limpia el formulario para una nueva captura
     function resetFormAfterSave(){
       const companyEl = document.getElementById('company');
-      const dateEl = document.getElementById('workDate');
+      //const dateEl = document.getElementById('workDate');
       const peopleEl = document.getElementById('numPeople');
       const actsEl = document.getElementById('activitiesContainer');
-      if (companyEl) companyEl.value = '';
+	  const dateEl = document.getElementById('workDate'); 
       if (dateEl) dateEl.value = new Date().toISOString().split('T')[0];
       if (peopleEl) peopleEl.value = 1;
       if (actsEl) actsEl.innerHTML = '';
@@ -586,19 +609,47 @@ window.onAppChange = onAppChange;
 
 async function validateAndSave() {
   hideError();
-  const numPeople = parseInt(document.getElementById('numPeople').value) || 0;
-  const maxHours = numPeople * 40;
-  let totalHours = 0;
 
-  const activities = Array.from(document.querySelectorAll('.activity-block'));
-  const date = document.getElementById('workDate').value;
+  // === Lectura básica ===
+  const numPeople = parseInt(document.getElementById('numPeople').value) || 0;
   const company = document.getElementById('company').value;
 
+  // Fechas (usar rango; mínimo 1, máximo 5 días)
+  const dates = getSelectedDates();           // <- array de YYYY-MM-DD
   if (!company){ showError('Selecciona la empresa.'); return; }
-  if (!date){ showError('Selecciona la fecha.'); return; }
+  if (!dates.length){ showError('Selecciona una fecha válida o un rango (máx. 5 días).'); return; }
 
+  const dayCount = dates.length;
+  const maxHours = numPeople * 8 * dayCount;  // tope del rango (8h por día × nº días × personas)
+  const perDayCap = 8 * numPeople;            // tope por día
+
+	if (!window.weekStartISO || !window.weekEndISO){
+	  const today = new Date();
+	  const dow = (today.getDay() + 6) % 7;     // 0 = lunes
+	  const monday = new Date(today); monday.setDate(today.getDate() - dow);
+	  const sunday = new Date(monday); sunday.setDate(monday.getDate() + 6);
+	
+	  window.weekStartISO = monday.toISOString().slice(0,10);
+	  window.weekEndISO   = sunday.toISOString().slice(0,10);
+	  // Etiquetas por si queremos mostrarlas en el error
+	  window.startLabel = monday.toLocaleDateString('es-ES', { day:'2-digit', month:'short', year:'numeric' });
+	  window.endLabel   = sunday.toLocaleDateString('es-ES', { day:'2-digit', month:'short', year:'numeric' });
+	}
+	
+	const outOfRange = dates.find(d => d < window.weekStartISO || d > window.weekEndISO);
+	if (outOfRange){
+	  showError(`Las fechas deben estar dentro de la semana en curso (${window.startLabel} – ${window.endLabel}).`);
+	  return;
+}
+	
+  let totalHours = 0;
   let hasFieldError = false;
-  const records = activities.map(block => {
+
+  // === Recoger actividades (sin fecha todavía) y validar campos ===
+  const activities = Array.from(document.querySelectorAll('.activity-block'));
+
+  // Mapeamos los bloques sin expandir a días; acumulamos horas totales introducidas
+  const perActivity = activities.map(block => {
     const activity = block.querySelector('.activity')?.value || '';
     let demand     = block.querySelector('.demand')?.value || '';
     const cartera  = block.querySelector('.portfolio')?.value || 'Global';
@@ -609,179 +660,166 @@ async function validateAndSave() {
       ? (taskEl.value || (taskEl.options[taskEl.selectedIndex]?.text || ''))
       : '';
 
-	// VALIDACIÓN: cuando la actividad requiere Tarea, no puede quedar en "— Selecciona —"
-	if (activity === 'Soporte' || activity === 'Calidad') {
-	  // si el select está habilitado pero sin valor (placeholder con value="")
-	  const taskIsEmpty = !taskEl || taskEl.disabled || !taskEl.value;
-	  if (taskIsEmpty) {
-	    hasFieldError = true;
-	    if (taskEl) taskEl.style.borderColor = 'var(--error)';
-	  } else {
-	    if (taskEl) taskEl.style.borderColor = '';
-	  }
-	} else {
-	  // otras actividades: limpia posible rojo previo
-	  if (taskEl) taskEl.style.borderColor = '';
-	}
+    // VALIDACIÓN: cuando la actividad requiere Tarea, no puede quedar vacía
+    if (activity === 'Soporte' || activity === 'Calidad') {
+      const taskIsEmpty = !taskEl || taskEl.disabled || !taskEl.value;
+      if (taskIsEmpty) {
+        hasFieldError = true;
+        if (taskEl) taskEl.style.borderColor = 'var(--error)';
+      } else if (taskEl) {
+        taskEl.style.borderColor = '';
+      }
+    } else {
+      if (taskEl) taskEl.style.borderColor = '';
+    }
 
-
-    // Reglas nuevas:
-    // 1) Si la actividad es "Demanda" => NO se envía código de demanda
+    // Reglas de demanda
     if (activity === 'Demanda') {
-      demand = '';
+      demand = ''; // Demanda => no enviar código
     }
 
-    // 2) Si la actividad es "Delivery" => requerir código de demanda
-// 2) Si la actividad es "Delivery" => requerir código de demanda válido del datalist
-if (activity === 'Delivery') {
-  const list = Array.isArray(window.DEMAND_CODES) ? window.DEMAND_CODES : [];
-  const demandInput = block.querySelector('.demand');
-  const isValid = demand && list.includes(demand);
-
-  if (!isValid) {
-    hasFieldError = true;
-    if (demandInput) {
-      demandInput.style.borderColor = 'var(--error)';
-      demandInput.value = ''; // blanquear campo
-    }
-  } else {
-    if (demandInput) demandInput.style.borderColor = '';
-  }
-} else {
+    // Delivery => exigir código válido (de la lista/datalist)
+    if (activity === 'Delivery') {
+      const list = Array.isArray(window.DEMAND_CODES) ? window.DEMAND_CODES : [];
+      const demandInput = block.querySelector('.demand');
+      const isValid = demand && list.includes(demand);
+      if (!isValid) {
+        hasFieldError = true;
+        if (demandInput) {
+          demandInput.style.borderColor = 'var(--error)';
+          demandInput.value = ''; // blanquear campo
+        }
+      } else if (demandInput) {
+        demandInput.style.borderColor = '';
+      }
+    } else {
       const demandSelect = block.querySelector('.demand');
       if (demandSelect) demandSelect.style.borderColor = '';
     }
 
-    // Asunto: usa input; si viene vacío y hay mapeo por demanda (Delivery), úsalo
+    // Asunto: si vacío y hay mapeo por demanda (Delivery), úsalo
     let subject = block.querySelector('.subject')?.value || '';
     if (!subject && activity === 'Delivery' && window.DEMAND_MAP && demand) {
       subject = window.DEMAND_MAP[demand] || '';
     }
 
-    // Horas
+    // Horas totales (antes del reparto)
     const hoursEl = block.querySelector('.hours');
     const hours   = parseFloat(hoursEl.value) || 0;
 
     totalHours += hours;
-    if (hours <= 0) { 
-      hoursEl.style.borderColor = 'var(--error)'; 
-      hasFieldError = true; 
-    } else { 
-      hoursEl.style.borderColor = ''; 
+    if (hours <= 0) {
+      hasFieldError = true;
+      hoursEl.style.borderColor = 'var(--error)';
+    } else {
+      hoursEl.style.borderColor = '';
     }
 
-    // Validar actividad vacía (opcional pero recomendado)
+    // Validar actividad vacía
+    const actEl = block.querySelector('.activity');
     if (!activity) {
       hasFieldError = true;
-      const actEl = block.querySelector('.activity');
       if (actEl) actEl.style.borderColor = 'var(--error)';
-    } else {
-      const actEl = block.querySelector('.activity');
-      if (actEl) actEl.style.borderColor = '';
+    } else if (actEl) {
+      actEl.style.borderColor = '';
     }
 
-	// Leer aplicación
-	const appEl = block.querySelector('.app');
-	const application = (appEl?.value || '').trim();
+    // Aplicación (si existe: debe estar en el datalist)
+    const appEl = block.querySelector('.app');
+    const application = (appEl?.value || '').trim();
+    if (application) {
+      const appsDL = document.getElementById('appsList');
+      const isValidApp = !!(appsDL && [...appsDL.options].some(o => o.value === application));
+      if (!isValidApp) {
+        hasFieldError = true;
+        if (appEl) {
+          appEl.style.borderColor = 'var(--error)';
+          appEl.value = '';
+        }
+      } else if (appEl) {
+        appEl.style.borderColor = '';
+      }
+    }
 
-	// Validación: si hay aplicación, debe existir en el datalist
-	if (application) {
-		  const appsDL = document.getElementById('appsList');
-		  const isValidApp = !!(appsDL && [...appsDL.options].some(o => o.value === application));
-		  if (!isValidApp) {
-		    hasFieldError = true;
-		    if (appEl) {
-		      appEl.style.borderColor = 'var(--error)';
-		      appEl.value = ''; // blanquear
-		    }
-		  } else if (appEl) {
-		    appEl.style.borderColor = '';
-	  }
-	}
-	
-	// … (resto de validaciones ya existentes) …
-	
-	return {
-	  company,
-	  date,
-	  num_people: numPeople,
-	  activity,
-	  demand,
-	  task,
-	  subject,
-	  hours,
-	  cartera,
-	  application
-	};
-
+    return { activity, demand, task, subject, hours, cartera, application };
   });
 
-	 const isEdit = (editingIndex !== null);
-	  if (isEdit && records.length !== 1){
-	    showError('En modo edición solo puedes tener una actividad.');
-	    return;
-	  }
+  if (hasFieldError){
+    showError('Revisa los campos resaltados en rojo.');
+    return;
+  }
 
+  // === Comprobación de tope del rango (suma total de horas) ===
+  if (totalHours > maxHours) {
+    recalcHours(totalHours, maxHours);
+    showError(`La suma de horas (${totalHours.toFixed(2)}) supera el máximo permitido para ${dayCount} día(s) y ${numPeople} persona(s): ${maxHours.toFixed(2)}.`);
+    const box = document.getElementById('hoursSummary');
+    if (box){ box.classList.add('bad'); box.classList.remove('ok'); }
+    return;
+  }
 
+  // === EXPANSIÓN POR FECHA repartiendo horas por día ===
+  // Necesitas tener definida splitHoursEvenly(total, parts)
+  const records = [];
+  for (const a of perActivity){
+    const perDay = splitHoursEvenly(a.hours, dayCount); // array length = nº días
 
-  // Si hubo errores de campo, no enviamos
-	if (hasFieldError) {
-	  showError('Revisa los campos resaltados en rojo. Para "Delivery", selecciona un código de demanda válido de la lista.');
-	  return;
-	}
+    // Valida tope por día (8 h × personas)
+    const overIdx = perDay.findIndex(h => h > perDayCap + 1e-9);
+    if (overIdx !== -1){
+      showError(`La actividad "${a.activity}" supera el máximo por día (${perDay[overIdx].toFixed(2)} h > ${perDayCap.toFixed(2)} h). Reduce horas o personas.`);
+      return;
+    }
 
-	// BLOQUEO por exceso de horas (suma de actividades > numPersonas*40)
-	if (totalHours > maxHours) {
-	  recalcHours(totalHours, maxHours); // refresca semáforo
-	  showError(`La suma de horas (${totalHours.toFixed(2)}) supera el máximo permitido (${maxHours.toFixed(2)}).`);
-	  const box = document.getElementById('hoursSummary');
-	  if (box) { box.classList.add('bad'); box.classList.remove('ok'); }
-	  return;
-	}
-	
-    const btnSave = document.getElementById('btnSave');
-	try {
-	  if (btnSave) { btnSave.disabled = true; btnSave.textContent = 'Enviando...'; }
-	
-	  let sendRes;
-	if (isEdit){
-	  // Envío de UNA fila en modo actualización (incluye id)
-	  records[0].id = editingOriginalId;   // <-- imprescindible
-	  sendRes = await sendUpdateToSheets(records[0]);
-	} else {
-	  // Alta múltiple como antes
-	  sendRes = await sendToSheets(records);
-	}
-	
+    // Crea una fila por cada día del rango con la fracción correspondiente
+    for (let i = 0; i < dayCount; i++){
+      const date = dates[i];
+      records.push({
+        company,
+        date,                                 // fecha de la fila
+        date_end: dates[dates.length - 1],    // opcional: fin del rango
+        num_people: numPeople,
+        activity: a.activity,
+        demand: a.demand,
+        task: a.task,
+        subject: a.subject,
+        hours: perDay[i],                     // horas prorrateadas para ese día
+        cartera: a.cartera,
+        application: a.application
+      });
+    }
+  }
+
+  // === Envío (mantiene tu flujo existente) ===
+  const btnSave = document.getElementById('btnSave');
+  try {
+    if (btnSave) { btnSave.disabled = true; btnSave.textContent = 'Enviando...'; }
+
+    // Si tienes modo edición, ajusta aquí; si no, siempre alta múltiple
+    let sendRes = await sendToSheets(records);
+
 	if (sendRes.ok){
-	  // Limpia estado de edición si aplica
-	  if (isEdit){
-	    editingIndex = null;
-	    editingOriginalId = null;
-	    toggleEditUI(false);
-	  }
 	  recalcHours(totalHours, maxHours);
+	  await refreshWeekForCurrentCompany();      // ✅ refresca la lista inmediatamente
 	  showFeedback('📤 Guardado en servidor');
-	  resetFormAfterSave();
-	  await refreshWeekForCurrentCompany(); // ← recarga desde backend la semana actual
-	} else if (sendRes.reason === 'missing_url') {
-		  showError('⚠️ Falta configurar la URL del Web App');
-		} else if (sendRes.reason === 'network_error') {
-		  showError('⚠️ No se pudo conectar con el servidor');
-		} else if (sendRes.reason === 'timeout') {
-		  showError('⚠️ Sin confirmación del servidor (timeout)');
-		} else {
-		  showError('⚠️ El servidor no confirmó el guardado');
-		  console.log('Diagnóstico envío:', sendRes);
-		}
-	
-		} catch (err) {
-		  console.error(err);
-		  showError('⚠️ Error inesperado al guardar');
-		} finally {
-		  if (btnSave) { btnSave.disabled = false; btnSave.textContent = '💾 Guardar Registro'; }
-		}
-	 }
+	  resetFormAfterSave();                      // ✅ luego limpiamos el formulario
+	} else if (sendRes.reason === 'missing_url'){
+      showError('⚠️ Falta configurar la URL del Web App');
+    } else if (sendRes.reason === 'network_error'){
+      showError('⚠️ No se pudo conectar con el servidor');
+    } else if (sendRes.reason === 'timeout'){
+      showError('⚠️ Sin confirmación del servidor (timeout)');
+    } else {
+      showError('⚠️ El servidor no confirmó el guardado');
+      console.log('Diagnóstico envío:', sendRes);
+    }
+  } catch (err){
+    console.error(err);
+    showError('⚠️ Error inesperado al guardar');
+  } finally {
+    if (btnSave) { btnSave.disabled = false; btnSave.textContent = '💾 Guardar Registro'; }
+  }
+}
 
 
     // Envío sin CORS: form + iframe (robusto: autocrea DOM si falta)
@@ -900,15 +938,29 @@ function currentWeekRangeMadrid() {
   };
 }
 
-function setRecordsTitleRange(startLabel, endLabel){
+function setRecordsTitleRange(startIso, endIso, startLabel, endLabel){
   const h = document.getElementById('recordsTitle');
   const company = document.getElementById('company').value;
   if (h) h.textContent = `Registros guardados esta semana por ${company} (${startLabel} – ${endLabel})`;
+
+  // Guarda límites de semana (ISO) y labels en variables globales
+  window.weekStartISO = startIso;   // ← antes intentabas usar startDate
+  window.weekEndISO   = endIso;     // ← antes intentabas usar endDate
+  window.startLabel   = startLabel;
+  window.endLabel     = endLabel;
+
+  // Aplica min/max a los inputs de fecha
+  const startInput = document.getElementById('workDate');
+  const endInput   = document.getElementById('workDateEnd');
+  [startInput, endInput].forEach(el => {
+    if (el){ el.min = startIso; el.max = endIso; }
+  });
 }
+
 
 async function fetchWeekRecords(company){
   const { startIso, endIso, startLabel, endLabel } = currentWeekRangeMadrid();
-  setRecordsTitleRange(startLabel, endLabel);
+  setRecordsTitleRange(startIso, endIso, startLabel, endLabel);
 
   const qs = new URLSearchParams({
     resource: 'listWeek',
@@ -949,7 +1001,8 @@ async function refreshWeekForCurrentCompany(){
     // --- Resumen de horas ---
     function recalcHours(passedTotal, passedMax){
       const numPeople = parseInt(document.getElementById('numPeople').value) || 0;
-      const max = passedMax ?? numPeople * 40;
+	  const dayCount = getDayCount();
+	  const max = passedMax ?? numPeople * 8 * dayCount;
       const total = passedTotal ?? Array.from(document.querySelectorAll('.hours')).reduce((s, el)=> s + (parseFloat(el.value)||0), 0);
       document.getElementById('totalHours').textContent = total.toFixed(2);
       document.getElementById('maxHours').textContent = max.toFixed(2);
@@ -1014,6 +1067,7 @@ async function refreshWeekForCurrentCompany(){
 	  createActivityBlock({
 	    activity: rec.activity || '',
 	    cartera:  rec.cartera  || 'Global',
+		application: rec.application || '',
 	    demand:   rec.demand   || '',
 	    task:     rec.task     || '',
 	    subject:  rec.subject  || '',
@@ -1123,30 +1177,89 @@ async function refreshWeekForCurrentCompany(){
 	  recalcHours(); 
 	}
 
- // Crear el primer bloque al cargar y configurar escuchas
-  document.addEventListener('DOMContentLoaded', () => {
-    // fecha por defecto
-    const dateEl = document.getElementById('workDate');
-    if (dateEl) dateEl.value = new Date().toISOString().split('T')[0];
+document.addEventListener('DOMContentLoaded', () => {
+  // ===== Fecha por defecto (inicio) =====
+  const dateEl = document.getElementById('workDate');
+  if (dateEl) dateEl.value = new Date().toISOString().split('T')[0];
 
-    // crea el primer bloque de actividad
-    createActivityBlock();
+  // ===== Referencias para la UI de rango =====
+  const isRangeEl = document.getElementById('isRange');
+  const endEl = document.getElementById('workDateEnd');
+  const sepEl = document.getElementById('rangeSep');
 
-    // UI de horas
-    recalcHours();
-    const peopleEl = document.getElementById('numPeople');
-    if (peopleEl) peopleEl.addEventListener('input', () => recalcHours());
-    const actsEl = document.getElementById('activitiesContainer');
-    if (actsEl) actsEl.addEventListener('input', (e) => {
-      if (e.target.classList.contains('hours')) recalcHours();
+  // Muestra/oculta fecha fin y sincroniza límites
+  function updateRangeUI(){
+    const on = !!(isRangeEl && isRangeEl.checked);
+    if (on){
+      if (endEl) {
+        endEl.classList.remove('hidden');
+        if (!endEl.value && dateEl) endEl.value = dateEl.value; // fin = inicio por defecto
+      }
+      if (sepEl) sepEl.classList.remove('hidden');
+    } else {
+      if (endEl){
+        endEl.classList.add('hidden');
+        endEl.value = '';
+      }
+      if (sepEl) sepEl.classList.add('hidden');
+    }
+    recalcHours(); // el máximo depende del nº de días seleccionados
+  }
+
+  // Listeners del rango
+  if (isRangeEl && dateEl && endEl){
+    isRangeEl.addEventListener('change', updateRangeUI);
+
+    dateEl.addEventListener('change', () => {
+      // Si hay rango activo, garantiza fin >= inicio
+      if (isRangeEl.checked){
+        if (!endEl.value) endEl.value = dateEl.value;
+        const s = parseIsoDate(dateEl.value);
+        const e = parseIsoDate(endEl.value);
+        if (s && e && e < s) endEl.value = dateEl.value;
+      }
+      recalcHours();
     });
-	toggleEditUI(false);
+
+    endEl.addEventListener('change', () => {
+      const dates = getSelectedDates();   // usa las funciones que añadimos antes
+      // Marca error visual si el rango no es válido
+      if (!dates.length){
+        endEl.style.borderColor = 'var(--error)';
+      } else {
+        endEl.style.borderColor = '';
+      }
+      recalcHours();
+    });
+
+    // Sincroniza estado inicial (por si el checkbox viene marcado en el HTML)
+    updateRangeUI();
+  }
+
+  // ===== Crea el primer bloque de actividad =====
+  createActivityBlock();
+
+  // ===== UI de horas =====
+  recalcHours();
+
+  const peopleEl = document.getElementById('numPeople');
+  if (peopleEl) peopleEl.addEventListener('input', () => recalcHours());
+
+  const actsEl = document.getElementById('activitiesContainer');
+  if (actsEl) actsEl.addEventListener('input', (e) => {
+    if (e.target.classList.contains('hours')) recalcHours();
+  });
+
+  // ===== Edit UI / Compañía & refresco de semana =====
+  toggleEditUI(false);
+
   const companyEl = document.getElementById('company');
   if (companyEl){
     companyEl.addEventListener('change', refreshWeekForCurrentCompany);
-	}
+  }
   if (companyEl && companyEl.value) refreshWeekForCurrentCompany();
 });
+
 
 
 // Asegura que las funciones referenciadas en atributos HTML existan en window
@@ -1217,6 +1330,53 @@ document.addEventListener('DOMContentLoaded', loadCodes);
       el.value = v ?? '';
     }
   }
+
+// ====== FECHAS (rango) ======
+function toIsoDate(d){ return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())).toISOString().slice(0,10); }
+function parseIsoDate(s){ const [y,m,d] = (s||'').split('-').map(n=>parseInt(n,10)); if(!y||!m||!d) return null; return new Date(y, m-1, d); }
+
+// Devuelve array de YYYY-MM-DD para el rango seleccionado (inclusive), limitado a 1..5 días.
+function getSelectedDates(){
+  const startStr = document.getElementById('workDate')?.value || '';
+  const isRange = document.getElementById('isRange')?.checked;
+  const endStr = document.getElementById('workDateEnd')?.value || '';
+
+  const start = parseIsoDate(startStr);
+  if (!start) return [];
+
+  let end = start;
+  if (isRange){
+    const e = parseIsoDate(endStr);
+    if (!e) return [];
+    if (e < start) return [];
+    end = e;
+  }
+
+  const days = [];
+  const cur = new Date(start);
+  while (cur <= end && days.length < 5){
+    days.push(toIsoDate(cur));
+    cur.setDate(cur.getDate()+1);
+  }
+  return days;
+}
+
+function getDayCount(){
+  const dates = getSelectedDates();
+  return Math.max(1, Math.min(5, dates.length || 1));
+}
+
+// Reparte horas totales en 'parts' días, igualadas y redondeadas a 2 decimales,
+// garantizando que la suma final coincida con el total original.
+function splitHoursEvenly(total, parts){
+  const factor = 100;                       // centésimas de hora
+  let units = Math.round((total || 0) * factor);
+  const base = Math.floor(units / parts);   // base en centésimas
+  let rem = units - base * parts;           // resto a distribuir
+  const arr = Array(parts).fill(base);
+  for (let i = 0; i < parts && rem > 0; i++, rem--) arr[i]++; // distribuye 1 centésima a los primeros 'rem'
+  return arr.map(u => u / factor);
+}
 
 function toggleEditUI(on){
   const saveBtn   = document.getElementById('btnSave');
