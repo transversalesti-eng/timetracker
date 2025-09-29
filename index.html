@@ -619,126 +619,86 @@ async function validateAndSave() {
   if (!company){ showError('Selecciona la empresa.'); return; }
   if (!dates.length){ showError('Selecciona una fecha válida o un rango (máx. 5 días).'); return; }
 
-  const dayCount = dates.length;
-  const maxHours = numPeople * 8 * dayCount;  // tope del rango (8h por día × nº días × personas)
-  const perDayCap = 8 * numPeople;            // tope por día
+  const dayCount  = dates.length;
+  const maxHours  = numPeople * 8 * dayCount; // tope del rango
+  const perDayCap = 8 * numPeople;            // tope/día
 
-	if (!window.weekStartISO || !window.weekEndISO){
-	  const today = new Date();
-	  const dow = (today.getDay() + 6) % 7;     // 0 = lunes
-	  const monday = new Date(today); monday.setDate(today.getDate() - dow);
-	  const sunday = new Date(monday); sunday.setDate(monday.getDate() + 6);
-	
-	  window.weekStartISO = monday.toISOString().slice(0,10);
-	  window.weekEndISO   = sunday.toISOString().slice(0,10);
-	  // Etiquetas por si queremos mostrarlas en el error
-	  window.startLabel = monday.toLocaleDateString('es-ES', { day:'2-digit', month:'short', year:'numeric' });
-	  window.endLabel   = sunday.toLocaleDateString('es-ES', { day:'2-digit', month:'short', year:'numeric' });
-	}
-	
-	const outOfRange = dates.find(d => d < window.weekStartISO || d > window.weekEndISO);
-	if (outOfRange){
-	  showError(`Las fechas deben estar dentro de la semana en curso (${window.startLabel} – ${window.endLabel}).`);
-	  return;
-}
-	
-  let totalHours = 0;
-  let hasFieldError = false;
+  // Asegura ventanas de semana para validaciones
+  if (!window.weekStartISO || !window.weekEndISO){
+    const today = new Date();
+    const dow = (today.getDay() + 6) % 7;     // 0 = lunes
+    const monday = new Date(today); monday.setDate(today.getDate() - dow);
+    const sunday = new Date(monday); sunday.setDate(monday.getDate() + 6);
+
+    window.weekStartISO = monday.toISOString().slice(0,10);
+    window.weekEndISO   = sunday.toISOString().slice(0,10);
+    window.startLabel   = monday.toLocaleDateString('es-ES', { day:'2-digit', month:'short', year:'numeric' });
+    window.endLabel     = sunday.toLocaleDateString('es-ES', { day:'2-digit', month:'short', year:'numeric' });
+  }
+  const outOfRange = dates.find(d => d < window.weekStartISO || d > window.weekEndISO);
+  if (outOfRange){
+    showError(`Las fechas deben estar dentro de la semana en curso (${window.startLabel} – ${window.endLabel}).`);
+    return;
+  }
 
   // === Recoger actividades (sin fecha todavía) y validar campos ===
+  let totalHours = 0;
+  let hasFieldError = false;
   const activities = Array.from(document.querySelectorAll('.activity-block'));
 
-  // Mapeamos los bloques sin expandir a días; acumulamos horas totales introducidas
   const perActivity = activities.map(block => {
     const activity = block.querySelector('.activity')?.value || '';
     let demand     = block.querySelector('.demand')?.value || '';
     const cartera  = block.querySelector('.portfolio')?.value || 'Global';
 
-    // Tarea (solo si select no está deshabilitado)
     const taskEl = block.querySelector('.task');
     const task   = (taskEl && !taskEl.disabled)
       ? (taskEl.value || (taskEl.options[taskEl.selectedIndex]?.text || ''))
       : '';
 
-    // VALIDACIÓN: cuando la actividad requiere Tarea, no puede quedar vacía
     if (activity === 'Soporte' || activity === 'Calidad') {
       const taskIsEmpty = !taskEl || taskEl.disabled || !taskEl.value;
-      if (taskIsEmpty) {
-        hasFieldError = true;
-        if (taskEl) taskEl.style.borderColor = 'var(--error)';
-      } else if (taskEl) {
-        taskEl.style.borderColor = '';
-      }
-    } else {
-      if (taskEl) taskEl.style.borderColor = '';
-    }
+      if (taskIsEmpty) { hasFieldError = true; taskEl && (taskEl.style.borderColor = 'var(--error)'); }
+      else { taskEl && (taskEl.style.borderColor = ''); }
+    } else { taskEl && (taskEl.style.borderColor = ''); }
 
-    // Reglas de demanda
-    if (activity === 'Demanda') {
-      demand = ''; // Demanda => no enviar código
-    }
+    if (activity === 'Demanda') { demand = ''; }
 
-    // Delivery => exigir código válido (de la lista/datalist)
     if (activity === 'Delivery') {
       const list = Array.isArray(window.DEMAND_CODES) ? window.DEMAND_CODES : [];
       const demandInput = block.querySelector('.demand');
       const isValid = demand && list.includes(demand);
       if (!isValid) {
         hasFieldError = true;
-        if (demandInput) {
-          demandInput.style.borderColor = 'var(--error)';
-          demandInput.value = ''; // blanquear campo
-        }
-      } else if (demandInput) {
-        demandInput.style.borderColor = '';
-      }
+        if (demandInput) { demandInput.style.borderColor = 'var(--error)'; demandInput.value = ''; }
+      } else if (demandInput) { demandInput.style.borderColor = ''; }
     } else {
       const demandSelect = block.querySelector('.demand');
       if (demandSelect) demandSelect.style.borderColor = '';
     }
 
-    // Asunto: si vacío y hay mapeo por demanda (Delivery), úsalo
     let subject = block.querySelector('.subject')?.value || '';
     if (!subject && activity === 'Delivery' && window.DEMAND_MAP && demand) {
       subject = window.DEMAND_MAP[demand] || '';
     }
 
-    // Horas totales (antes del reparto)
     const hoursEl = block.querySelector('.hours');
     const hours   = parseFloat(hoursEl.value) || 0;
-
     totalHours += hours;
-    if (hours <= 0) {
-      hasFieldError = true;
-      hoursEl.style.borderColor = 'var(--error)';
-    } else {
-      hoursEl.style.borderColor = '';
-    }
+    if (hours <= 0) { hasFieldError = true; hoursEl.style.borderColor = 'var(--error)'; }
+    else { hoursEl.style.borderColor = ''; }
 
-    // Validar actividad vacía
     const actEl = block.querySelector('.activity');
-    if (!activity) {
-      hasFieldError = true;
-      if (actEl) actEl.style.borderColor = 'var(--error)';
-    } else if (actEl) {
-      actEl.style.borderColor = '';
-    }
+    if (!activity) { hasFieldError = true; actEl && (actEl.style.borderColor = 'var(--error)'); }
+    else { actEl && (actEl.style.borderColor = ''); }
 
-    // Aplicación (si existe: debe estar en el datalist)
     const appEl = block.querySelector('.app');
     const application = (appEl?.value || '').trim();
     if (application) {
       const appsDL = document.getElementById('appsList');
       const isValidApp = !!(appsDL && [...appsDL.options].some(o => o.value === application));
-      if (!isValidApp) {
-        hasFieldError = true;
-        if (appEl) {
-          appEl.style.borderColor = 'var(--error)';
-          appEl.value = '';
-        }
-      } else if (appEl) {
-        appEl.style.borderColor = '';
-      }
+      if (!isValidApp) { hasFieldError = true; appEl && (appEl.style.borderColor = 'var(--error)'); if (appEl) appEl.value = ''; }
+      else { appEl && (appEl.style.borderColor = ''); }
     }
 
     return { activity, demand, task, subject, hours, cartera, application };
@@ -749,7 +709,7 @@ async function validateAndSave() {
     return;
   }
 
-  // === Comprobación de tope del rango (suma total de horas) ===
+  // === Tope de rango (suma total de horas) ===
   if (totalHours > maxHours) {
     recalcHours(totalHours, maxHours);
     showError(`La suma de horas (${totalHours.toFixed(2)}) supera el máximo permitido para ${dayCount} día(s) y ${numPeople} persona(s): ${maxHours.toFixed(2)}.`);
@@ -758,52 +718,91 @@ async function validateAndSave() {
     return;
   }
 
-  // === EXPANSIÓN POR FECHA repartiendo horas por día ===
-  // Necesitas tener definida splitHoursEvenly(total, parts)
-  const records = [];
-  for (const a of perActivity){
-    const perDay = splitHoursEvenly(a.hours, dayCount); // array length = nº días
+  const isEditing = (editingIndex !== null) && !!editingOriginalId;
+  const btnSave = document.getElementById('btnSave');
 
-    // Valida tope por día (8 h × personas)
-    const overIdx = perDay.findIndex(h => h > perDayCap + 1e-9);
-    if (overIdx !== -1){
-      showError(`La actividad "${a.activity}" supera el máximo por día (${perDay[overIdx].toFixed(2)} h > ${perDayCap.toFixed(2)} h). Reduce horas o personas.`);
-      return;
-    }
+  try {
+    if (btnSave) { btnSave.disabled = true; btnSave.textContent = 'Enviando...'; }
 
-    // Crea una fila por cada día del rango con la fracción correspondiente
-    for (let i = 0; i < dayCount; i++){
-      const date = dates[i];
-      records.push({
+    if (isEditing) {
+      // === Modo EDICIÓN: forzamos 1 día + 1 actividad ===
+      if (dates.length !== 1) { showError('En edición solo se permite 1 fecha.'); return; }
+      if (perActivity.length !== 1) { showError('En edición solo se permite 1 actividad.'); return; }
+      const a = perActivity[0];
+      if (a.hours > perDayCap + 1e-9) {
+        showError(`La actividad supera el máximo por día (${a.hours.toFixed(2)} h > ${perDayCap.toFixed(2)} h).`);
+        return;
+      }
+
+      const entry = {
+        id: editingOriginalId,
         company,
-        date,                                 // fecha de la fila
-        date_end: dates[dates.length - 1],    // opcional: fin del rango
+        date: dates[0],
         num_people: numPeople,
         activity: a.activity,
         demand: a.demand,
         task: a.task,
         subject: a.subject,
-        hours: perDay[i],                     // horas prorrateadas para ese día
+        hours: a.hours,
         cartera: a.cartera,
         application: a.application
-      });
+      };
+
+      const updRes = await sendUpdateToSheets(entry);
+      if (!updRes.ok) {
+        if (updRes.reason === 'missing_url')      showError('⚠️ Falta configurar la URL del Web App');
+        else if (updRes.reason === 'network_error') showError('⚠️ No se pudo conectar con el servidor');
+        else if (updRes.reason === 'timeout')       showError('⚠️ Sin confirmación del servidor (timeout)');
+        else showError('⚠️ El servidor no confirmó el guardado de la edición');
+        return;
+      }
+
+      // Limpia estado de edición, refresca tabla y formulario
+      toggleEditUI(false);
+      editingIndex = null;
+      editingOriginalId = null;
+      window._pendingEditBackup = null;
+
+      await refreshWeekForCurrentCompany();
+      showFeedback('✏ Cambios guardados');
+      resetFormAfterSave();
+      return;
     }
-  }
 
-  // === Envío (mantiene tu flujo existente) ===
-  const btnSave = document.getElementById('btnSave');
-  try {
-    if (btnSave) { btnSave.disabled = true; btnSave.textContent = 'Enviando...'; }
+    // === Modo ALTA: expansión por fechas y envío múltiple ===
+    const records = [];
+    for (const a of perActivity){
+      const perDay = splitHoursEvenly(a.hours, dayCount);
+      const overIdx = perDay.findIndex(h => h > perDayCap + 1e-9);
+      if (overIdx !== -1){
+        showError(`La actividad "${a.activity}" supera el máximo por día (${perDay[overIdx].toFixed(2)} h > ${perDayCap.toFixed(2)} h). Reduce horas o personas.`);
+        return;
+      }
+      for (let i = 0; i < dayCount; i++){
+        const date = dates[i];
+        records.push({
+          company,
+          date,
+          date_end: dates[dates.length - 1],
+          num_people: numPeople,
+          activity: a.activity,
+          demand: a.demand,
+          task: a.task,
+          subject: a.subject,
+          hours: perDay[i],
+          cartera: a.cartera,
+          application: a.application
+        });
+      }
+    }
 
-    // Si tienes modo edición, ajusta aquí; si no, siempre alta múltiple
-    let sendRes = await sendToSheets(records);
-
-	if (sendRes.ok){
-	  recalcHours(totalHours, maxHours);
-	  await refreshWeekForCurrentCompany();      // ✅ refresca la lista inmediatamente
-	  showFeedback('📤 Guardado en servidor');
-	  resetFormAfterSave();                      // ✅ luego limpiamos el formulario
-	} else if (sendRes.reason === 'missing_url'){
+    const sendRes = await sendToSheets(records);
+    if (sendRes.ok){
+      recalcHours(totalHours, maxHours);
+      showFeedback('📤 Guardado en servidor');
+      resetFormAfterSave();
+      await refreshWeekForCurrentCompany();
+    } else if (sendRes.reason === 'missing_url'){
       showError('⚠️ Falta configurar la URL del Web App');
     } else if (sendRes.reason === 'network_error'){
       showError('⚠️ No se pudo conectar con el servidor');
@@ -820,7 +819,6 @@ async function validateAndSave() {
     if (btnSave) { btnSave.disabled = false; btnSave.textContent = '💾 Guardar Registro'; }
   }
 }
-
 
     // Envío sin CORS: form + iframe (robusto: autocrea DOM si falta)
     function ensureSheetsTransport(urlValue){
@@ -1079,6 +1077,8 @@ async function refreshWeekForCurrentCompany(){
 	  toggleEditUI(true);
 	  showFeedback('✏ Registro cargado para edición');
 	  window.scrollTo({ top: 0, behavior:'smooth' });
+	  window._pendingEditBackup = timeEntries.splice(idx, 1)[0];
+	  updateEntries();
 	}
 
 
@@ -1164,18 +1164,26 @@ async function refreshWeekForCurrentCompany(){
 
 	function cancelEdit(){
 	  editingIndex = null;
-	  editingOriginalId = null; 
+	  editingOriginalId = null;
 	  toggleEditUI(false);
+	
+	  // Limpia el formulario y deja 1 bloque nuevo
 	  const actsEl = document.getElementById('activitiesContainer');
 	  if (actsEl) actsEl.innerHTML = '';
 	  if (typeof activityCount !== 'undefined') activityCount = 0;
 	  createActivityBlock();
+	
 	  const dateEl = document.getElementById('workDate');
 	  if (dateEl) dateEl.value = new Date().toISOString().split('T')[0];
 	  const peopleEl = document.getElementById('numPeople');
 	  if (peopleEl) peopleEl.value = 1;
-	  recalcHours(); 
+	  recalcHours();
+	
+	  // Restaura la tabla desde backend para recuperar la fila retirada
+	  if (typeof refreshWeekForCurrentCompany === 'function') refreshWeekForCurrentCompany();
+	  window._pendingEditBackup = null;
 	}
+
 
 document.addEventListener('DOMContentLoaded', () => {
   // ===== Fecha por defecto (inicio) =====
