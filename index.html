@@ -131,17 +131,18 @@
 	    <th>Código de demanda</th>
 	    <th>Tarea</th>
 	    <th>Asunto</th>
+		<th>Nº personas</th>
 	    <th style="text-align:right;">Horas</th>
 	    <th>Acciones</th>
 	  </tr>
 	</thead>
 	<tbody id="entriesTbody">
-	  <tr><td colspan="10">No hay registros.</td></tr>
+	  <tr><td colspan="11">No hay registros.</td></tr>
 	</tbody>
 
     <tfoot>
       <tr>
-        <td colspan="7" style="text-align:right;">Total</td>
+        <td colspan="9" style="text-align:right;">Total</td>
         <td id="entriesTotal" style="text-align:right;">0.00</td>
         <td></td>
       </tr>
@@ -152,7 +153,7 @@
 
 <script>
 // URL de tu Web App de Google Apps Script
-window.GSHEET_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbyAc95TYXyOVJFrS0FZ5nd7vj0DbWrJsmdTz6_P5qdgSNYPtIafdc6od8hes5PyPKeJ/exec";
+window.GSHEET_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbyN7tSovTseqtogK_iaFNa-ecdkwG_4IdczlfvjCh3MgfrFvMGnGVOamTvcna8ZE595/exec";
 
 const SUBTASKS = {
   Soporte: ['Incidencias', 'Peticiones', 'Consultas'],
@@ -987,11 +988,14 @@ async function refreshWeekForCurrentCompany(){
   tbody.innerHTML = '<tr><td colspan="9">Cargando…</td></tr>';
 
   try{
-    const rows = await fetchWeekRecords(company);
-    timeEntries = rows;              // ← fuente de la tabla pasa a ser el backend
+	const rows = await fetchWeekRecords(company);
+    timeEntries = (rows || []).map(r => {
+	  const n = parseInt(r.num_people ?? r.numPeople ?? r.people ?? r.Personas, 10);
+	  return { ...r, num_people: (Number.isFinite(n) && n > 0) ? n : 1 };
+	});
     updateEntries();
   } catch (e){
-    tbody.innerHTML = `<tr><td colspan="9">Error: ${e.message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="11">Error: ${e.message}</td></tr>`;
   }
 }
 	
@@ -1010,38 +1014,52 @@ async function refreshWeekForCurrentCompany(){
     }
 
     // --- Tabla de registros ---
-    function updateEntries(){
-      const tbody = document.getElementById('entriesTbody');
-      const totalCell = document.getElementById('entriesTotal');
-      if (!tbody) return;
+	function updateEntries(){
+	  const tbody = document.getElementById('entriesTbody'); // 👈 selector correcto
+	  if (!tbody) return;
+	
+	  tbody.innerHTML = '';
+	
+	  const rows = Array.isArray(timeEntries) ? timeEntries : [];
+	  if (!rows.length){
+	    tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; opacity:.7;">Sin registros</td></tr>`;
+	    document.getElementById('entriesTotal').textContent = '0.00';
+	    return;
+	  }
+	
+	  let total = 0;
+	
+	  rows.forEach((rec, idx) => {
+	    const nPeople = Number(rec?.num_people ?? rec?.numPeople ?? rec?.people ?? rec?.Personas) || 1;
+	    const hours   = (typeof rec?.hours === 'number') ? rec.hours : Number(rec?.hours) || 0;
+	    total += hours;
+	
+	    const tr = document.createElement('tr');
+	    tr.innerHTML = `
+	      <td>${rec.company || ''}</td>
+	      <td>${rec.cartera || 'Global'}</td>
+	      <td>${rec.application || ''}</td>
+	      <td>${rec.date || ''}</td>
+	      <td>${rec.activity || ''}</td>
+	      <td>${rec.demand || ''}</td>
+	      <td>${rec.task || ''}</td>
+	      <td>${rec.subject || ''}</td>
+	      <td>${nPeople}</td>
+	      <td style="text-align:right;">${hours.toFixed(2)}</td>
+	      <td class="actions">
+	        <button class="btn btn-xs" onclick="editEntry(${idx})" title="Editar">✏</button>
+	        <button class="btn btn-xs danger" onclick="deleteEntry(${idx})" title="Eliminar">🗑</button>
+	      </td>
+	    `;
+	    tbody.appendChild(tr);
+	  });
+	
+	  const totalCell = document.getElementById('entriesTotal');
+	  if (totalCell) totalCell.textContent = total.toFixed(2);
+	}
 
-      if (!timeEntries.length){
-        tbody.innerHTML = '<tr><td colspan="9">No hay registros.</td></tr>';
-        if (totalCell) totalCell.textContent = '0.00';
-        return;
-      }
 
-      const total = timeEntries.reduce((s,e)=> s + (parseFloat(e.hours)||0), 0).toFixed(2);
-      tbody.innerHTML = timeEntries.map((e, idx)=> `
-	  <tr>
-	    <td>${e.company || ''}</td>
-		<td>${e.cartera || 'Global'}</td>
-		<td>${e.application || '—'}</td>
-	    <td>${e.date || ''}</td>
-	    <td>${e.activity || '—'}</td>
-	    <td>${e.demand || '—'}</td>
-	    <td>${e.task || '—'}</td>
-	    <td>${e.subject || '—'}</td>
-	    <td style="text-align:right; white-space:nowrap;">${e.hours}</td>
-	    <td style="white-space:nowrap;">
-	      <button class="btn-secondary" title="Editar" onclick="editEntry(${idx})">✏</button>
-	      <button class="btn-secondary" title="Eliminar" onclick="deleteEntry(${idx})">🗑</button>
-	    </td>
-	  </tr>`).join('');
-      if (totalCell) totalCell.textContent = total;
-    }
-
-	function editEntry(idx){
+	function editEntry(idx) {
 	  const rec = timeEntries[idx];
 	  if (!rec) return;
 	
@@ -1049,37 +1067,126 @@ async function refreshWeekForCurrentCompany(){
 	  editingIndex = idx;
 	  editingOriginalId = rec.id || null;
 	
-	  // Rellena cabecera
+	  // --- Cabecera: empresa y fecha (edición = 1 día, sin rango) ---
 	  const companyEl = document.getElementById('company');
 	  const dateEl    = document.getElementById('workDate');
-	  const peopleEl  = document.getElementById('numPeople');
 	  if (companyEl) companyEl.value = rec.company || '';
 	  if (dateEl)    dateEl.value    = rec.date || new Date().toISOString().split('T')[0];
-	  if (peopleEl)  peopleEl.value  = rec.num_people || 1;
 	
-	  // Limpia actividades y crea UNA con prefill
+	  // (id correcto del checkbox de rango es 'isRange')
+	  const rangeChk  = document.getElementById('isRange');
+	  const dateEndEl = document.getElementById('workDateEnd');
+	  const sep       = document.getElementById('rangeSep');
+	  if (rangeChk)  rangeChk.checked = false;
+	  if (dateEndEl) dateEndEl.classList.add('hidden');
+	  if (sep)       sep.classList.add('hidden');
+	
+	  // --- Nº de personas ---
+	  const peopleEl = document.getElementById('numPeople');
+	  const numPeopleValRaw = (rec.num_people ?? rec.numPeople ?? rec.people ?? rec.Personas ?? 1);
+	  const nPeople = Math.max(1, parseInt(numPeopleValRaw, 10) || 1);
+	  if (peopleEl) peopleEl.value = nPeople;
+	
+	  // Recalcular topes/resumen con el nuevo Nº de personas
+	  if (typeof recalcHours === 'function') recalcHours();
+	
+	  // --- Actividades: limpiar y crear UNA con prefill del registro ---
 	  const actsEl = document.getElementById('activitiesContainer');
 	  if (actsEl) actsEl.innerHTML = '';
 	  if (typeof activityCount !== 'undefined') activityCount = 0;
 	
 	  createActivityBlock({
-	    activity: rec.activity || '',
-	    cartera:  rec.cartera  || 'Global',
-		application: rec.application || '',
-	    demand:   rec.demand   || '',
-	    task:     rec.task     || '',
-	    subject:  rec.subject  || '',
-	    hours:    rec.hours    || 0
+	    activity:    rec.activity    || '',
+	    cartera:     rec.cartera     || 'Global',
+	    application: rec.application || '',
+	    demand:      rec.demand      || '',
+	    task:        rec.task        || '',
+	    subject:     rec.subject     || '',
+	    hours:       rec.hours ?? 0
 	  });
-		
-	  recalcHours();
-		
+	
+	  // --- Tras crear el bloque: simular cambio de actividad y rellenar dependientes ---
+	  const block = document.querySelector('.activity-block');
+	  const actEl = block?.querySelector('.activity');
+	  if (actEl) actEl.value = rec.activity || '';
+	
+	  // ✅ Llamar correctamente pasando el SELECT (no el DIV)
+	  let maybePromise;
+	  if (typeof onActivityChange === 'function' && actEl) {
+	    maybePromise = onActivityChange(actEl);
+	  } else if (actEl) {
+	    actEl.dispatchEvent(new Event('change', { bubbles: true }));
+	  }
+	
+	  const applyDependentFields = () => {
+	    const appEl       = block.querySelector('.app');
+	    const portEl      = block.querySelector('.portfolio');
+	    const demandEl    = block.querySelector('.demand');
+	    const subjectEl   = block.querySelector('.subject');
+	    const taskEl      = block.querySelector('.task');
+	    const activityVal = actEl ? actEl.value : '';
+	
+	    if (appEl)  appEl.value  = rec.application || '';
+	    if (portEl) portEl.value = rec.cartera || 'Global';
+	
+	    if (demandEl) demandEl.value = rec.demand || '';
+	
+	    // 🧠 Asunto:
+	    // - Delivery: re-mapea mediante onDemandChange (bloquea si hay mapeo)
+	    // - Resto: restablece el asunto del registro y asegúralo editable
+	    if (activityVal === 'Delivery' && demandEl && typeof onDemandChange === 'function') {
+	      onDemandChange(demandEl);
+	      // Si por cualquier motivo no hay mapeo y sí había subject guardado, lo reponemos sin bloquear
+	      if (subjectEl && !subjectEl.value && rec.subject) {
+	        subjectEl.value = rec.subject;
+	        subjectEl.readOnly = false;
+	      }
+	    } else if (subjectEl) {
+	      subjectEl.value = rec.subject || '';
+	      subjectEl.readOnly = false;
+	    }
+	
+	    // 🧩 Tarea: casar por value/texto; si no existe, inyectar opción y habilitar si aplica
+	    const wanted = rec.task || '';
+	    if (taskEl) {
+	      if (taskEl.tagName === 'SELECT') {
+	        const opts = Array.from(taskEl.options);
+	        const match = opts.find(o => o.value === wanted || o.text === wanted);
+	        if (match) {
+	          taskEl.value = match.value;
+	        } else if (wanted) {
+	          taskEl.add(new Option(wanted, wanted));
+	          taskEl.value = wanted;
+	        }
+	      } else {
+	        taskEl.value = wanted;
+	      }
+	      // Habilitar tarea si la actividad la requiere (Soporte / Calidad)
+	      if (activityVal === 'Soporte' || activityVal === 'Calidad') {
+	        taskEl.disabled = false;
+	      }
+	    }
+	  };
+	
+	  if (maybePromise && typeof maybePromise.then === 'function') {
+	    maybePromise.then(applyDependentFields);
+	  } else {
+	    setTimeout(applyDependentFields, 0);
+	  }
+	
+	  // --- Mostrar estado de edición ---
 	  toggleEditUI(true);
 	  showFeedback('✏ Registro cargado para edición');
 	  window.scrollTo({ top: 0, behavior:'smooth' });
+	
+	  // Retirar temporalmente la fila para evitar duplicado visual
 	  window._pendingEditBackup = timeEntries.splice(idx, 1)[0];
 	  updateEntries();
 	}
+
+
+
+
 
 
 	async function deleteEntry(idx){
