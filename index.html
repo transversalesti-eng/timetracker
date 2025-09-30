@@ -292,13 +292,14 @@ function fillOptions(selectEl, options){
 	      <div class="form-group" style="flex:0 1 180px; min-width:160px;">
 			<label>Código de demanda</label>
 			<input class="demand" list="demandCodesList" aria-label="Código de demanda"
-		       onblur="onDemandChange(this)" disabled placeholder="Buscar o pegar código…" />
+			       oninput="onDemandChange(this)" onblur="onDemandChange(this)"
+			       disabled placeholder="Buscar o pegar código…" />
 
 	      </div>
 	
 	      <div class="form-group" style="flex:0 1 220px; min-width:180px;">
 	        <label>Tarea</label>
-	        <select class="task" aria-label="Tarea" onchange="updateTarea(this)" disabled>
+	        <select class="task" aria-label="Tarea" disabled>
 	          <option value="" selected>— Selecciona tarea —</option>
 	        </select>
 	      </div>
@@ -532,27 +533,45 @@ function onDemandChange(inputEl){
   const activity     = parent.querySelector('.activity')?.value || '';
   const subjectInput = parent.querySelector('.subject');
   const portfolio    = parent.querySelector('.portfolio');
+  const appInput     = parent.querySelector('.app'); // por si gobierna el bloqueo
   const code         = (inputEl.value || '').trim();
 
   if (!subjectInput) return;
 
+  // === Reset inmediato si el campo queda vacío ===
+	if (!code) {
+	  inputEl.style.borderColor = '';
+	  subjectInput.value = '';
+	  subjectInput.readOnly = false;
+	
+	  if (portfolio) {
+	    // Asegura que existe la opción "Global"
+	    if (![...portfolio.options].some(o => o.value === 'Global')) {
+	      portfolio.insertAdjacentHTML('afterbegin', `<option value="Global">Global</option>`);
+	    }
+	    portfolio.value = 'Global';
+	    portfolio.disabled = false;   // forzamos habilitado para que se vea el cambio
+	    portfolio.dispatchEvent(new Event('change', { bubbles: true }));
+	  }
+	  return; // importante: salimos aquí
+	}
+
   // Solo exigimos código válido cuando la actividad es Delivery
   if (activity === 'Delivery') {
     const list = Array.isArray(window.DEMAND_CODES) ? window.DEMAND_CODES : [];
-    const isValid = code && list.includes(code);
-
-	if (!isValid) {
-	  inputEl.style.borderColor = 'var(--error)';
-	  subjectInput.value = '';
-	  subjectInput.readOnly = false;
-	  // sin showError aquí para no molestar; el error salta al guardar
-	  return;
-	} else {
+    const isValid = list.includes(code);
+    if (!isValid) {
+      inputEl.style.borderColor = 'var(--error)';
+      subjectInput.value = '';
+      subjectInput.readOnly = false;
+      // NOTA: no tocamos cartera cuando el código es inválido pero no vacío
+      return;
+    } else {
       inputEl.style.borderColor = '';
     }
   }
 
-  // Mapeo de asunto (si existe)
+  // Mapeo de Asunto
   const mappedSubject = (window.DEMAND_MAP || {})[code] || '';
   if (activity === 'Delivery') {
     if (mappedSubject) { subjectInput.value = mappedSubject; subjectInput.readOnly = true; }
@@ -562,19 +581,22 @@ function onDemandChange(inputEl){
     subjectInput.readOnly = false;
   }
 
-	// mapeo de Cartera desde Sheets (columna C)
-	 const mappedCartera = (window.DEMAND_CARTERA || {})[code] || '';
-	  if (portfolio) {
-	    if (mappedCartera) {
-	      const exists = [...portfolio.options].some(o => o.value === mappedCartera);
-	      if (!exists) portfolio.insertAdjacentHTML('beforeend', `<option value="${mappedCartera}">${mappedCartera}</option>`);
-	      portfolio.value = mappedCartera;
-	      portfolio.disabled = true;
-	    } else {
-	      portfolio.disabled = false;
-	    }
-	}
+  // Mapeo de Cartera (columna C)
+  const mappedCartera = (window.DEMAND_CARTERA || {})[code] || '';
+  if (portfolio) {
+    if (mappedCartera) {
+      const exists = [...portfolio.options].some(o => o.value === mappedCartera);
+      if (!exists) portfolio.insertAdjacentHTML('beforeend', `<option value="${mappedCartera}">${mappedCartera}</option>`);
+      portfolio.value = mappedCartera;
+      portfolio.disabled = true;
+    } else {
+      // si no hay mapeo por código, solo desbloquea si no hay aplicación gobernando
+      const hasApp = !!(appInput && appInput.value && appInput.value.trim());
+      portfolio.disabled = !!hasApp ? true : false;
+    }
+  }
 }
+
 
 function onAppChange(inputEl, opts){
   const parent    = inputEl.closest('.activity-block');
