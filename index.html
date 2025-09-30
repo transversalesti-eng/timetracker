@@ -1,40 +1,1613 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <title>Actualización en curso</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TIC Tranversales - Registro de Tiempos</title>
+  <link rel="icon" href="Acciona_logo.svg.png" />
+
   <style>
-    body {
-      margin: 0;
-      height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-family: 'Segoe UI', system-ui, sans-serif;
-      background: #f6f7f8;
-      color: #333;
-    }
-    .box {
-      text-align: center;
-      padding: 40px;
-      border-radius: 16px;
-      background: #fff;
-      box-shadow: 0 6px 20px rgba(0,0,0,0.1);
-    }
-    h1 {
-      color: #e30613; /* color Acciona */
-      margin-bottom: 16px;
-    }
-    p {
-      font-size: 18px;
-      margin: 0;
-    }
+  .table-wrap{ overflow-x:auto; border:1px solid #eee; border-radius:10px; }
+  .table{ width:100%; border-collapse:collapse; font-size:14px; }
+  .table thead th{ position:sticky; top:0; background:#fff0f1; color:var(--acciona); text-align:left; padding:10px; border-bottom:2px solid #f2b4b8; }
+  .table tbody td{ padding:10px; border-bottom:1px solid #f2f2f2; vertical-align:top; }
+  .table tfoot td{ padding:10px; background:#f9f9f9; font-weight:700; }
+  .table tbody tr:hover{ background:#fff8f8; }
+    :root{--acciona:#e30613;--acciona-dark:#ba0510;--ok:#1a7f37;--error:#a40000;}
+    *{box-sizing: border-box;}
+    body {font-family: 'Segoe UI', system-ui, -apple-system, Arial, sans-serif;background:#f6f7f8;margin:0;color:#222;}
+    .container { 
+	  max-width: 1280px;     
+	  margin: 24px auto; 
+	  padding: 24px; 
+	  background:#fff; 
+	  border-radius: 14px; 
+	  box-shadow: 0 10px 25px rgba(0,0,0,.06); 
+	}
+	@media (min-width: 1440px){
+	  .container { max-width: 1360px; }
+	}
+    .logo { display:flex; justify-content:center; margin-bottom: 8px; }
+    .logo img { height: 76px; }
+    h1 { text-align:center; color: var(--acciona); margin: 8px 0 24px; letter-spacing:.2px; }
+
+    label { font-weight: 600; color:#333; }
+    .form-row { display:flex; gap:16px; flex-wrap: wrap; }
+    .form-group { margin-bottom: 16px; flex:1; min-width: 220px; }
+    select, input, textarea { width:100%; padding:10px 12px; margin-top:6px; border:1px solid #d9d9d9; border-radius:8px; font-size:15px; background:#fff; transition: .2s border, .2s box-shadow; }
+    select:focus, input:focus, textarea:focus { border-color: var(--acciona); outline: none; box-shadow: 0 0 0 3px rgba(227,6,19,.15); }
+
+    .activity-block { border:2px solid var(--acciona); border-radius:12px; padding:16px; background:#fff; margin-bottom:16px; }
+    .activity-block h3 { margin:0 0 12px; }
+    .badge { display:inline-block; background:#fff0f1; color:var(--acciona); padding:6px 10px; border-radius:999px; font-weight:700; }
+
+    .entry { background:#fff; border:1px solid #eee; border-left:4px solid var(--acciona); padding:12px; border-radius:8px; margin-bottom:10px; display:flex; flex-wrap:wrap; gap:8px 16px; align-items:center; }
+    .entry .meta { flex:1 1 200px; }
+    .entry .row-actions { display:flex; gap:8px; }
+
+    .btn { background: var(--acciona); color:#fff; padding:10px 16px; border:none; border-radius:8px; font-weight:700; cursor:pointer; transition: .2s background, .2s transform; }
+    .btn:hover { background: var(--acciona-dark); }
+    .btn:active { transform: translateY(1px); }
+    .btn-secondary { background:#fff; color:var(--acciona); border:2px solid var(--acciona); }
+    .btn-secondary:hover { background:#ffe6e8; }
+
+    .actions-bar { position: sticky; bottom:0; background:#ffffffd9; backdrop-filter:saturate(180%) blur(4px); display:flex; gap:12px; padding:12px; margin-top:8px; border-top:1px solid #eee; border-radius:0 0 12px 12px; }
+
+    .summary { background:#f7f7f7; border:1px solid #eee; padding:10px 12px; border-radius:8px; font-size: 14px; }
+    .summary.ok { border-color:#cfe9d6; background:#f4fbf6; color: var(--ok); }
+    .summary.bad { border-color:#ffb3b3; background:#fff4f4; color: var(--error); }
+
+    .error { background:#ffecec; color:var(--error); border-left:4px solid var(--error); padding:10px 12px; border-radius:8px; display:none; margin-top:10px; }
+
+    #feedback { position: fixed; top: 20px; right: 20px; padding: 12px 16px; background: #e0f7e9; color: var(--ok); border-left:4px solid var(--ok); border-radius: 10px; box-shadow: 0 10px 25px rgba(0,0,0,.1); font-weight: 700; display:none; z-index: 1000; opacity:0; transform: translateY(-6px); transition: .25s opacity, .25s transform; }
+    #feedback.visible { display:block; opacity:1; transform: translateY(0); }
+.table-wrap{ overflow-x:auto; border:1px solid #eee; border-radius:10px; }
+.table{ width:100%; border-collapse:collapse; font-size:14px; }
+.table thead th{ position:sticky; top:0; background:#fff0f1; color:var(--acciona); text-align:left; padding:10px; border-bottom:2px solid #f2b4b8; }
+.table tbody td{ padding:10px; border-bottom:1px solid #f2f2f2; vertical-align:top; }
+.table tfoot td{ padding:10px; background:#f9f9f9; font-weight:700; }
+.table tbody tr:hover{ background:#fff8f8; }
+.hidden{ display:none !important; }
+
+	.table .actions .btn,
+	.table .actions button {
+	  font-size: 13px;
+	  padding: 4px 8px;
+	  border-radius: 6px;
+	  line-height: 1.2;
+	}
+	
+	.table .actions .btn.danger,
+	.table .actions button.danger {
+	  background: #e30613;
+	  color: #fff;
+	  border: none;
+	}
+	
+	.table .actions .btn.danger:hover,
+	.table .actions button.danger:hover {
+	  background: #ba0510;
+	}
+
   </style>
 </head>
 <body>
-  <div class="box">
-    <h1>🚧 Página en actualización 🚧</h1>
-    <p>Estamos realizando mejoras.<br/>La herramienta estará disponible en breve.</p>
-  </div>
+  <div class="container" aria-live="polite">
+    <div class="logo"><img src="Acciona_logo.svg.png" alt="Logo de Acciona" /></div>
+    <h1>TIC Tranversales</h1>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label for="company">Empresa</label>
+        <select id="company" aria-label="Empresa">
+          <option value="" selected>— Selecciona empresa —</option>
+          <option value="Acciona Energía">Acciona Energía</option>
+          <option value="Nfq">Nfq</option>
+		  <option value="Aderen">Aderen</option>
+        </select>
+    </div>
+	<div class="form-group" style="min-width:260px;">
+	  <label for="workDate">Fecha</label>
+	  <div class="form-row" style="gap:8px; align-items:center; justify-content:flex-start;">
+	    <input type="date" id="workDate" aria-label="Fecha inicio" />
+	    <span id="rangeSep" class="hidden">—</span>
+	    <input type="date" id="workDateEnd" aria-label="Fecha fin" class="hidden" />
+	
+	    <!-- Checkbox alineado a la izquierda -->
+	    <label style="display:flex; gap:4px; align-items:center; margin:0; white-space:nowrap;">
+	      <input type="checkbox" id="isRange" />
+	      Seleccionar rango (máx. 5 días)
+	    </label>
+	  </div>
+	</div>
+
+
+      <div class="form-group">
+        <label for="numPeople">Número de personas</label>
+        <input type="number" id="numPeople" min="1" value="1" aria-label="Número de personas" />
+        <div id="hoursSummary" class="summary" style="margin-top:8px;">Horas totales: <strong id="totalHours">0</strong> / Máximo: <strong id="maxHours">8</strong></div>
+      </div>
+    </div>
+
+    <div id="activitiesContainer"></div>
+
+    <div class="actions-bar">
+      <button class="btn" id="btnAdd" title="Añadir actividad (Enter)" onclick="addActivityBlock()">➕ Añadir actividad</button>
+      <button class="btn" id="btnSave" title="Guardar (Ctrl+S)" onclick="validateAndSave()">💾 Guardar Registro</button>
+	  <button type="button" id="cancelEditBtn" class="btn-ghost hidden" onclick="cancelEdit()">Cancelar edición</button>
+
+      <div id="formError" class="error">⚠️ Revisa los campos marcados o la suma de horas.</div>
+    </div>
+
+<h2 id="recordsTitle" style="margin: 22px 0 8px;">Registros</h2>
+<div id="recordsSection" class="table-wrap" hidden>
+  <table class="table" aria-label="Tabla de registros">
+    <thead>
+	  <tr>
+	    <th>Empresa</th>
+		<th>Cartera</th>
+		<th>Aplicación</th>
+	    <th>Fecha</th>
+	    <th>Actividad</th>
+	    <th>Código de demanda</th>
+	    <th>Tarea</th>
+	    <th>Asunto</th>
+		<th>Nº personas</th>
+	    <th style="text-align:right;">Horas</th>
+	    <th>Acciones</th>
+	  </tr>
+	</thead>
+	<tbody id="entriesTbody">
+	  <tr><td colspan="11">No hay registros.</td></tr>
+	</tbody>
+
+    <tfoot>
+      <tr>
+        <td colspan="9" style="text-align:right;">Total</td>
+        <td id="entriesTotal" style="text-align:right;">0.00</td>
+        <td></td>
+      </tr>
+    </tfoot>
+  </table>
+</div>
+<div id="feedback" role="status" aria-live="assertive"></div>
+
+<script>
+// URL de tu Web App de Google Apps Script
+window.GSHEET_WEBAPP_URL = "https://script.google.com/macros/s/AKfycby5Odk0FKk-GFqWpxYDLHKyf3NbetWtOO8G0m5cVuRHZcAyAI2xJR2I5jMBUDzco1I5/exec";
+
+const SUBTASKS = {
+  Soporte: ['Incidencias', 'Peticiones', 'Consultas'],
+  Calidad: ['QA Delivery', 'QA Estimaciones', 'Configuración']
+};
+
+let timeEntries = [];
+let activityCount = 0;
+let editingIndex = null;       // null = creación, número = edición
+let editingOriginalId = null;  // (si en el futuro guardas IDs de Sheets)
+let DEMAND_CODES = [];
+const ACTIVITY_OPTIONS = [
+  'Delivery',
+  'Soporte',
+  'Proveedores',
+  'Operaciones',
+  'Económicas',
+  'Calidad',
+  'Coordinación',
+  'Demanda'
+];
+
+const CARTERAS = [
+  'Global','EN.Asesoria Jurídica','EN.Calidad y Seguridad','EN.Data&AI',
+  'EN.Desarrollo Corporativo y Estrategia','EN.Financiero - Finanzas',
+  'EN.Innovación','EN.Marketing','EN.Oficina de Estudios CEO','EN.QSE','EN.RRHH',
+  'EN.Seguridad','EN.Sostenibilidad','EN.Supply Chain',
+  'EN.TIC - Aplicaciones','EN.TIC - Arq. Tecnológica y Gobierno IT','EN.TIC - Comunicaciones',
+  'EN.TIC - Demanda','EN.TIC - Infraestructuras','EN.TIC - Puesto de Usuario','EN.TIC - Servicios de Usuario', 'EN.DigitalHub'
+];
+
+const APP_TO_CARTERA = {
+  "AAE: JURI": "EN.Asesoria Jurídica",
+  "AAE: Seguimiento y Control de Contratos de Venta AE": "EN.Financiero - Finanzas",
+  "AAE: SIRO - IMDI": "EN.Innovación",
+  "CIRCE": "EN.Calidad y Seguridad",
+  "Enable Now": "EN.Supply Chain",
+  "Enablon: Enablon": "EN.Calidad y Seguridad",
+  "Expediting": "EN.Supply Chain",
+  "GIM RRHH": "EN.RRHH",
+  "GoSupply": "EN.Supply Chain",
+  "GreenVille": "EN.Sostenibilidad",
+  "Headcount Budgeting Tool": "EN.RRHH",
+  "Kaleido LMS": "EN.Supply Chain",
+  "LumApps": "EN.Supply Chain",
+  "MAP (Managing AE Processes)": "EN.Calidad y Seguridad",
+  "Metaverso": "EN.DigitalHub",               // 👈 especificado
+  "Organimi": "EN.RRHH",
+  "Perfil de Contratista": "EN.Supply Chain",
+  "Plan Acción AE": "EN.Oficina de Estudios CEO",
+  "Procurement": "EN.Supply Chain",
+  "SAP Ariba Contracts - CLM": "EN.Supply Chain",
+  "SCS: SCS": "EN.Supply Chain",
+  "SO99+: SO99+": "EN.Supply Chain",
+  "Web Soluciones Acciona Energia": "EN.Marketing",
+  "Wordly": "EN.Supply Chain"
+	//<------- Añade aquí----------->
+};
+
+function fillOptions(selectEl, options){
+  if (!selectEl || selectEl.tagName !== 'SELECT') return; // 👈 evita tocar inputs
+  const placeholder = '<option value="" selected>— Selecciona —</option>';
+  selectEl.innerHTML = placeholder + (options || []).map(v => `<option value="${v}">${v}</option>`).join('');
+}
+	
+    // Helpers UI
+    function showFeedback(message){
+      const box = document.getElementById('feedback');
+      box.textContent = message;
+      box.classList.add('visible');
+      setTimeout(()=> box.classList.remove('visible'), 2500);
+    }
+    function showError(msg){
+      const box = document.getElementById('formError');
+      box.textContent = '⚠️ ' + msg;
+      box.style.display = 'block';
+    }
+    function hideError(){
+      const box = document.getElementById('formError');
+      if (!box) return; box.style.display = 'none';
+    }
+
+    // Crear bloque de actividad (con prefill opcional)
+    function createActivityBlock(prefill){
+	  activityCount++;
+	  const container = document.getElementById('activitiesContainer');
+	  const block = document.createElement('div');
+	  block.className = 'activity-block';
+	  block.id = `activity-${activityCount}`;
+	  block.innerHTML = `
+	    <h3><span class="badge">📌 Actividad ${activityCount}</span></h3>
+	    <div class="form-row" style="align-items:flex-end;">
+
+	      <div class="form-group" style="flex:0 1 220px; min-width:160px;">
+	        <label>Actividad</label>
+	        <select class="activity" aria-label="Actividad" onchange="onActivityChange(this)">
+	          <option value="" selected>— Selecciona actividad —</option>
+	          ${ACTIVITY_OPTIONS.map(a => `<option value="${a}">${a}</option>`).join('')}
+	        </select>
+	      </div>
+	
+	      <div class="form-group" style="flex:0 1 220px; min-width:160px;">
+	        <label>Cartera</label>
+	        <select class="portfolio" aria-label="Cartera" disabled>
+	          ${CARTERAS.map(v => `<option value="${v}">${v}</option>`).join('')}
+	        </select>
+	      </div>
+
+		  <div class="form-group" style="flex:0 1 240px; min-width:180px;">
+		    <label>Aplicación (opcional)</label>
+		    <input class="app" list="appsList" aria-label="Aplicación"
+				  oninput="onAppChange(this)" placeholder="Buscar o pegar…" disabled />
+		  </div>
+
+	      <div class="form-group" style="flex:0 1 180px; min-width:160px;">
+			<label>Código de demanda</label>
+			<input class="demand" list="demandCodesList" aria-label="Código de demanda"
+		       onblur="onDemandChange(this)" disabled placeholder="Buscar o pegar código…" />
+
+	      </div>
+	
+	      <div class="form-group" style="flex:0 1 220px; min-width:180px;">
+	        <label>Tarea</label>
+	        <select class="task" aria-label="Tarea" onchange="updateTarea(this)" disabled>
+	          <option value="" selected>— Selecciona tarea —</option>
+	        </select>
+	      </div>
+	
+	      <div class="form-group" style="flex:2 1 320px;">
+	        <label>Asunto</label>
+	        <input type="text" class="subject" aria-label="Asunto" />
+	      </div>
+	
+	      <div class="form-group" style="max-width:140px;">
+	        <label>Horas</label>
+	        <input type="number" class="hours" min="0" step="0.25" aria-label="Horas" />
+	      </div>
+		  
+		<div class="form-group" style="flex:0 0 120px; margin-left:auto; text-align:right;">
+		  <button type="button" class="btn-secondary" title="Eliminar actividad"
+		    onclick="this.closest('.activity-block').remove(); recalcHours();">🗑 Eliminar</button>
+		</div>
+	    </div>`;
+	
+	  container.appendChild(block);
+
+		// Forzar Cartera deshabilitada al crear el bloque
+		const portfolio = block.querySelector('.portfolio');
+		if (portfolio){
+		  portfolio.disabled = true;
+		  portfolio.value = 'Global'; // opcional
+		}
+		
+		// (si tienes el campo Aplicación)
+		const appInput = block.querySelector('.app');
+		if (appInput){
+		  appInput.disabled = true;   // hasta que haya actividad
+		  appInput.value = '';
+		}
+
+	
+	  // Inicializar según genéricas
+	  const activitySelect = block.querySelector('.activity');
+	  onActivityChange(activitySelect);
+	
+	
+	
+			// ===== PREFILL (si viene de editar) =====
+		if (prefill && typeof prefill === 'object'){
+		  // 1) Actividad
+		  if (prefill.activity){
+		    activitySelect.value = prefill.activity;
+		    onActivityChange(activitySelect);
+		  }
+		  // 2) Cartera
+		  const portfolio = block.querySelector('.portfolio');
+		  if (portfolio && prefill.cartera){
+		    const opt = [...portfolio.options].find(o => o.value === prefill.cartera);
+		    if (!opt){
+		      portfolio.insertAdjacentHTML('beforeend', `<option value="${prefill.cartera}">${prefill.cartera}</option>`);
+		    }
+		    portfolio.value = prefill.cartera;
+		  }
+			// 2b) Aplicación
+			const appInput = block.querySelector('.app');
+			if (appInput && prefill.application) {
+			  appInput.value = prefill.application;
+			  // Aplica mapeo/bloqueo de cartera si procede
+			  if (typeof onAppChange === 'function') onAppChange(appInput, {silent:true});
+			}
+			
+		  // 3) Código de demanda (si actividad=Delivery) y asunto por mapeo
+		  const demandSelect = block.querySelector('.demand');
+		  const subjectInput = block.querySelector('.subject');
+		if (demandSelect && prefill.demand){
+		  demandSelect.disabled = false;           // es un <input>
+		  demandSelect.value = prefill.demand;     // escribir el código directamente
+		  onDemandChange(demandSelect);            // aplicará el mapeo de asunto si existe
+		}
+
+
+		  // 4) Tarea (si procede)
+		  const taskSelect = block.querySelector('.task');
+		  if (taskSelect){
+		    if (prefill.task){
+		      // asegúrate de que exista como opción
+		      const exists = [...taskSelect.options].some(o => (o.value === prefill.task || o.text === prefill.task));
+		      if (!exists){
+		        taskSelect.insertAdjacentHTML('beforeend', `<option value="${prefill.task}">${prefill.task}</option>`);
+		      }
+		      taskSelect.value = prefill.task;
+		      taskSelect.disabled = false; // si estás editando, se supone que es válida
+		    } else if (prefill.taskId){
+		      taskSelect.value = prefill.taskId;
+		      taskSelect.disabled = false;
+		    }
+		  }
+		  // 5) Asunto (si no lo rellenó el mapeo)
+		  if (subjectInput){
+		    if (prefill.subject){
+		      subjectInput.value = prefill.subject;
+		      // si viene de mapeo, puede estar readOnly; en edición lo dejamos editable:
+		      subjectInput.readOnly = false;
+		    }
+		  }
+		  // 6) Horas
+		  const hoursEl = block.querySelector('.hours');
+		  if (hoursEl && prefill.hours != null){
+		    hoursEl.value = prefill.hours;
+		  }
+		}
+	}
+
+function addActivityBlock(){ createActivityBlock(); }
+
+
+function onActivityChange(selectEl){
+  const parent       = selectEl.closest('.activity-block');
+  const demandSelect = parent.querySelector('.demand');
+  const taskSelect   = parent.querySelector('.task');
+  const subjectInput = parent.querySelector('.subject');
+  const portfolio = parent.querySelector('.portfolio');
+  const appInput     = parent.querySelector('.app');
+  const v = selectEl.value || '';
+
+  // reset básico
+  fillOptions(taskSelect, []);
+  fillOptions(demandSelect, []);
+  taskSelect.disabled   = true;
+  demandSelect.disabled = true;
+  subjectInput.readOnly = false;
+  subjectInput.value    = '';
+
+	//gobernar cartera según actividad y aplicación
+// Sin actividad → Cartera deshabilitada y limpiamos Aplicación
+	if (!v){
+	  if (portfolio){
+	    portfolio.disabled = true;
+	    portfolio.value = 'Global'; // opcional
+	  }
+	  if (appInput){
+	    appInput.disabled = true;
+	    appInput.value = '';
+	  }
+	} else {
+	  // Con actividad → Cartera habilitada salvo que haya Aplicación con valor
+	  if (portfolio){
+	    const hasApp = !!(appInput && appInput.value && appInput.value.trim());
+	    portfolio.disabled = hasApp; // true si hay Aplicación (bloquea), false si no
+	  }
+	  if (appInput){
+	    appInput.disabled = false;
+	  }
+	}
+
+
+  switch (v) {
+	case 'Delivery': {
+	  const enableDemand = () => {
+	    demandSelect.disabled = false; // habilitar siempre
+	    const code   = demandSelect.value || '';
+	    const mapped = (window.DEMAND_MAP && window.DEMAND_MAP[code]) || '';
+	    subjectInput.value    = mapped || subjectInput.value;
+	    subjectInput.readOnly = !!mapped;
+	  };
+	
+	  enableDemand(); // habilita ya el input
+	
+	  // Si aún no llegaron los códigos, cuando lleguen re-evaluamos mapeos
+	  if (!Array.isArray(window.DEMAND_CODES) || window.DEMAND_CODES.length === 0) {
+	    window.addEventListener('demandcodes:ready', enableDemand, { once:true });
+	  }
+	  break;
+	}
+
+
+    case 'Soporte':
+	  // Tarea habilitada (3 opciones), Código de demanda deshabilitado, Asunto libre
+	  taskSelect.disabled   = false;
+	  fillOptions(taskSelect, SUBTASKS.Soporte);
+
+	  demandSelect.disabled = true;
+	  demandSelect.value = '';
+	
+	  subjectInput.readOnly = false;
+	  break;
+
+    case 'Proveedores':
+      // Todo bloqueado salvo Asunto libre
+      taskSelect.disabled   = true;
+	  demandSelect.disabled = true;
+	  demandSelect.value = '';
+      subjectInput.readOnly = false;
+      break;
+
+    case 'Operaciones':
+    case 'Económicas':
+    case 'Coordinación':
+      // Tarea y Código de demanda deshabilitados, Asunto libre
+      taskSelect.disabled   = true;
+	  demandSelect.disabled = true;
+	  demandSelect.value = '';
+      subjectInput.readOnly = false;
+      break;
+
+    case 'Calidad':
+      // Tarea habilitada (3 opciones), Código de demanda habilitado, Asunto libre
+      taskSelect.disabled   = false;
+      fillOptions(taskSelect, SUBTASKS.Calidad);
+      demandSelect.disabled = false;
+	  demandSelect.value = '';
+      subjectInput.readOnly = false;
+      break;
+
+	case 'Demanda': {
+	  const block        = selectEl.closest('.activity-block');
+	  const taskSelect   = block.querySelector('.task');
+	  const demandSelect = block.querySelector('.demand');
+	  const subjectInput = block.querySelector('.subject');
+	
+	  // Deshabilitar demanda y tarea; asunto libre
+	  taskSelect && (taskSelect.disabled = true);
+	  if (demandSelect) {
+	    demandSelect.disabled = true;
+	    demandSelect.innerHTML = '<option value="">— Selecciona código —</option>';
+	  }
+	  subjectInput && (subjectInput.readOnly = false);
+	  break;
+	  }
+	}
+}
+	
+function onDemandChange(inputEl){
+  const parent       = inputEl.closest('.activity-block');
+  const activity     = parent.querySelector('.activity')?.value || '';
+  const subjectInput = parent.querySelector('.subject');
+  const portfolio    = parent.querySelector('.portfolio');
+  const code         = (inputEl.value || '').trim();
+
+  if (!subjectInput) return;
+
+  // Solo exigimos código válido cuando la actividad es Delivery
+  if (activity === 'Delivery') {
+    const list = Array.isArray(window.DEMAND_CODES) ? window.DEMAND_CODES : [];
+    const isValid = code && list.includes(code);
+
+	if (!isValid) {
+	  inputEl.style.borderColor = 'var(--error)';
+	  subjectInput.value = '';
+	  subjectInput.readOnly = false;
+	  // sin showError aquí para no molestar; el error salta al guardar
+	  return;
+	} else {
+      inputEl.style.borderColor = '';
+    }
+  }
+
+  // Mapeo de asunto (si existe)
+  const mappedSubject = (window.DEMAND_MAP || {})[code] || '';
+  if (activity === 'Delivery') {
+    if (mappedSubject) { subjectInput.value = mappedSubject; subjectInput.readOnly = true; }
+    else { subjectInput.readOnly = false; }
+  } else {
+    if (mappedSubject && !subjectInput.value) subjectInput.value = mappedSubject;
+    subjectInput.readOnly = false;
+  }
+
+	// mapeo de Cartera desde Sheets (columna C)
+	 const mappedCartera = (window.DEMAND_CARTERA || {})[code] || '';
+	  if (portfolio) {
+	    if (mappedCartera) {
+	      const exists = [...portfolio.options].some(o => o.value === mappedCartera);
+	      if (!exists) portfolio.insertAdjacentHTML('beforeend', `<option value="${mappedCartera}">${mappedCartera}</option>`);
+	      portfolio.value = mappedCartera;
+	      portfolio.disabled = true;
+	    } else {
+	      portfolio.disabled = false;
+	    }
+	}
+}
+
+function onAppChange(inputEl, opts){
+  const parent    = inputEl.closest('.activity-block');
+  const portfolio = parent.querySelector('.portfolio');
+  const value     = (inputEl.value || '').trim();
+  const appsDL    = document.getElementById('appsList');
+  const silent    = opts && opts.silent;
+
+  // Valida contra el datalist: debe existir exactamente una opción con ese value
+  const valid = !!(value && appsDL && [...appsDL.options].some(o => o.value === value));
+
+  if (!value) {
+    // Vaciado: re-habilita cartera y no impone valor
+    if (portfolio) portfolio.disabled = false;
+    if (!silent) { inputEl.style.borderColor = ''; }
+    return;
+  }
+
+  if (!valid) {
+    // Valor inválido: blanquea, re-habilita cartera y marca error
+    if (!silent) {
+      inputEl.style.borderColor = 'var(--error)';
+      showError('Selecciona una aplicación válida de la lista.');
+    }
+    inputEl.value = '';
+    if (portfolio) { portfolio.disabled = false; }
+    return;
+  } else {
+    inputEl.style.borderColor = '';
+  }
+
+  // Valor válido → mapeo de cartera + bloqueo cartera
+  const mapped = APP_TO_CARTERA[value] || 'Global';
+  if (portfolio) {
+    // Asegura que la opción existe en el select:
+    const exists = [...portfolio.options].some(o => o.value === mapped);
+    if (!exists) {
+      portfolio.insertAdjacentHTML('beforeend', `<option value="${mapped}">${mapped}</option>`);
+    }
+    portfolio.value = mapped;
+    portfolio.disabled = true; // 
+  }
+}
+window.onAppChange = onAppChange;
+
+ // Limpia el formulario para una nueva captura
+    function resetFormAfterSave(){
+      const companyEl = document.getElementById('company');
+      //const dateEl = document.getElementById('workDate');
+      const peopleEl = document.getElementById('numPeople');
+      const actsEl = document.getElementById('activitiesContainer');
+	  const dateEl = document.getElementById('workDate'); 
+      if (dateEl) dateEl.value = new Date().toISOString().split('T')[0];
+      if (peopleEl) peopleEl.value = 1;
+      if (actsEl) actsEl.innerHTML = '';
+      if (typeof activityCount !== 'undefined') activityCount = 0;
+      if (typeof createActivityBlock === 'function') createActivityBlock();
+      if (typeof recalcHours === 'function') recalcHours(0);
+      if (typeof hideError === 'function') hideError();
+    }
+
+async function validateAndSave() {
+  hideError();
+
+  // === Lectura básica ===
+  const numPeople = parseInt(document.getElementById('numPeople').value) || 0;
+  const company = document.getElementById('company').value;
+
+  // Fechas (usar rango; mínimo 1, máximo 5 días)
+  const dates = getSelectedDates();           // <- array de YYYY-MM-DD
+  if (!company){ showError('Selecciona la empresa.'); return; }
+  if (!dates.length){ showError('Selecciona una fecha válida o un rango (máx. 5 días).'); return; }
+
+  const dayCount  = dates.length;
+  const maxHours  = numPeople * 8 * dayCount; // tope del rango
+  const perDayCap = 8 * numPeople;            // tope/día
+
+  // Asegura ventanas de semana para validaciones
+  if (!window.weekStartISO || !window.weekEndISO){
+    const today = new Date();
+    const dow = (today.getDay() + 6) % 7;     // 0 = lunes
+    const monday = new Date(today); monday.setDate(today.getDate() - dow);
+    const sunday = new Date(monday); sunday.setDate(monday.getDate() + 6);
+
+    window.weekStartISO = monday.toISOString().slice(0,10);
+    window.weekEndISO   = sunday.toISOString().slice(0,10);
+    window.startLabel   = monday.toLocaleDateString('es-ES', { day:'2-digit', month:'short', year:'numeric' });
+    window.endLabel     = sunday.toLocaleDateString('es-ES', { day:'2-digit', month:'short', year:'numeric' });
+  }
+  const outOfRange = dates.find(d => d < window.weekStartISO || d > window.weekEndISO);
+  if (outOfRange){
+    showError(`Las fechas deben estar dentro de la semana en curso (${window.startLabel} – ${window.endLabel}).`);
+    return;
+  }
+
+  // === Recoger actividades (sin fecha todavía) y validar campos ===
+  let totalHours = 0;
+  let hasFieldError = false;
+  const activities = Array.from(document.querySelectorAll('.activity-block'));
+
+  const perActivity = activities.map(block => {
+    const activity = block.querySelector('.activity')?.value || '';
+    let demand     = block.querySelector('.demand')?.value || '';
+    const cartera  = block.querySelector('.portfolio')?.value || 'Global';
+
+    const taskEl = block.querySelector('.task');
+    const task   = (taskEl && !taskEl.disabled)
+      ? (taskEl.value || (taskEl.options[taskEl.selectedIndex]?.text || ''))
+      : '';
+
+    if (activity === 'Soporte' || activity === 'Calidad') {
+      const taskIsEmpty = !taskEl || taskEl.disabled || !taskEl.value;
+      if (taskIsEmpty) { hasFieldError = true; taskEl && (taskEl.style.borderColor = 'var(--error)'); }
+      else { taskEl && (taskEl.style.borderColor = ''); }
+    } else { taskEl && (taskEl.style.borderColor = ''); }
+
+    if (activity === 'Demanda') { demand = ''; }
+
+    if (activity === 'Delivery') {
+      const list = Array.isArray(window.DEMAND_CODES) ? window.DEMAND_CODES : [];
+      const demandInput = block.querySelector('.demand');
+      const isValid = demand && list.includes(demand);
+      if (!isValid) {
+        hasFieldError = true;
+        if (demandInput) { demandInput.style.borderColor = 'var(--error)'; demandInput.value = ''; }
+      } else if (demandInput) { demandInput.style.borderColor = ''; }
+    } else {
+      const demandSelect = block.querySelector('.demand');
+      if (demandSelect) demandSelect.style.borderColor = '';
+    }
+
+    let subject = block.querySelector('.subject')?.value || '';
+    if (!subject && activity === 'Delivery' && window.DEMAND_MAP && demand) {
+      subject = window.DEMAND_MAP[demand] || '';
+    }
+
+    const hoursEl = block.querySelector('.hours');
+    const hours   = parseFloat(hoursEl.value) || 0;
+    totalHours += hours;
+    if (hours <= 0) { hasFieldError = true; hoursEl.style.borderColor = 'var(--error)'; }
+    else { hoursEl.style.borderColor = ''; }
+
+    const actEl = block.querySelector('.activity');
+    if (!activity) { hasFieldError = true; actEl && (actEl.style.borderColor = 'var(--error)'); }
+    else { actEl && (actEl.style.borderColor = ''); }
+
+    const appEl = block.querySelector('.app');
+    const application = (appEl?.value || '').trim();
+    if (application) {
+      const appsDL = document.getElementById('appsList');
+      const isValidApp = !!(appsDL && [...appsDL.options].some(o => o.value === application));
+      if (!isValidApp) { hasFieldError = true; appEl && (appEl.style.borderColor = 'var(--error)'); if (appEl) appEl.value = ''; }
+      else { appEl && (appEl.style.borderColor = ''); }
+    }
+
+    return { activity, demand, task, subject, hours, cartera, application };
+  });
+
+  if (hasFieldError){
+    showError('Revisa los campos resaltados en rojo.');
+    return;
+  }
+
+  // === Tope de rango (suma total de horas) ===
+  if (totalHours > maxHours) {
+    recalcHours(totalHours, maxHours);
+    showError(`La suma de horas (${totalHours.toFixed(2)}) supera el máximo permitido para ${dayCount} día(s) y ${numPeople} persona(s): ${maxHours.toFixed(2)}.`);
+    const box = document.getElementById('hoursSummary');
+    if (box){ box.classList.add('bad'); box.classList.remove('ok'); }
+    return;
+  }
+
+  const isEditing = (editingIndex !== null) && !!editingOriginalId;
+  const btnSave = document.getElementById('btnSave');
+
+  try {
+    if (btnSave) { btnSave.disabled = true; btnSave.textContent = 'Enviando...'; }
+
+    if (isEditing) {
+      // === Modo EDICIÓN: forzamos 1 día + 1 actividad ===
+      if (dates.length !== 1) { showError('En edición solo se permite 1 fecha.'); return; }
+      if (perActivity.length !== 1) { showError('En edición solo se permite 1 actividad.'); return; }
+      const a = perActivity[0];
+      if (a.hours > perDayCap + 1e-9) {
+        showError(`La actividad supera el máximo por día (${a.hours.toFixed(2)} h > ${perDayCap.toFixed(2)} h).`);
+        return;
+      }
+
+      const entry = {
+        id: editingOriginalId,
+        company,
+        date: dates[0],
+        num_people: numPeople,
+        activity: a.activity,
+        demand: a.demand,
+        task: a.task,
+        subject: a.subject,
+        hours: a.hours,
+        cartera: a.cartera,
+        application: a.application
+      };
+
+      const updRes = await sendUpdateToSheets(entry);
+      if (!updRes.ok) {
+        if (updRes.reason === 'missing_url')      showError('⚠️ Falta configurar la URL del Web App');
+        else if (updRes.reason === 'network_error') showError('⚠️ No se pudo conectar con el servidor');
+        else if (updRes.reason === 'timeout')       showError('⚠️ Sin confirmación del servidor (timeout)');
+        else showError('⚠️ El servidor no confirmó el guardado de la edición');
+        return;
+      }
+
+      // Limpia estado de edición, refresca tabla y formulario
+      toggleEditUI(false);
+      editingIndex = null;
+      editingOriginalId = null;
+      window._pendingEditBackup = null;
+
+      await refreshWeekForCurrentCompany();
+      showFeedback('✏ Cambios guardados');
+      resetFormAfterSave();
+      return;
+    }
+
+    // === Modo ALTA: expansión por fechas y envío múltiple ===
+    const records = [];
+    for (const a of perActivity){
+      const perDay = splitHoursEvenly(a.hours, dayCount);
+      const overIdx = perDay.findIndex(h => h > perDayCap + 1e-9);
+      if (overIdx !== -1){
+        showError(`La actividad "${a.activity}" supera el máximo por día (${perDay[overIdx].toFixed(2)} h > ${perDayCap.toFixed(2)} h). Reduce horas o personas.`);
+        return;
+      }
+      for (let i = 0; i < dayCount; i++){
+        const date = dates[i];
+        records.push({
+          company,
+          date,
+          date_end: dates[dates.length - 1],
+          num_people: numPeople,
+          activity: a.activity,
+          demand: a.demand,
+          task: a.task,
+          subject: a.subject,
+          hours: perDay[i],
+          cartera: a.cartera,
+          application: a.application
+        });
+      }
+    }
+
+    const sendRes = await sendToSheets(records);
+    if (sendRes.ok){
+      recalcHours(totalHours, maxHours);
+      showFeedback('📤 Guardado en servidor');
+      resetFormAfterSave();
+      await refreshWeekForCurrentCompany();
+    } else if (sendRes.reason === 'missing_url'){
+      showError('⚠️ Falta configurar la URL del Web App');
+    } else if (sendRes.reason === 'network_error'){
+      showError('⚠️ No se pudo conectar con el servidor');
+    } else if (sendRes.reason === 'timeout'){
+      showError('⚠️ Sin confirmación del servidor (timeout)');
+    } else {
+      showError('⚠️ El servidor no confirmó el guardado');
+      console.log('Diagnóstico envío:', sendRes);
+    }
+  } catch (err){
+    console.error(err);
+    showError('⚠️ Error inesperado al guardar');
+  } finally {
+    if (btnSave) { btnSave.disabled = false; btnSave.textContent = '💾 Guardar Registro'; }
+  }
+}
+
+    // Envío sin CORS: form + iframe (robusto: autocrea DOM si falta)
+    function ensureSheetsTransport(urlValue){
+      let iframe = document.getElementById('sheets_target');
+      if (!iframe){
+        iframe = document.createElement('iframe');
+        iframe.name = 'sheets_target';
+        iframe.id = 'sheets_target';
+        iframe.style.display = 'none';
+        document.body.appendChild(iframe);
+      }
+      let form = document.getElementById('sheets-form');
+      if (!form){
+        form = document.createElement('form');
+        form.id = 'sheets-form';
+        form.method = 'POST';
+        form.target = 'sheets_target';
+        form.style.display = 'none';
+        document.body.appendChild(form);
+      }
+      let urlInput = document.getElementById('sheets-url');
+      if (!urlInput){
+        urlInput = document.createElement('input');
+        urlInput.type = 'hidden';
+        urlInput.id = 'sheets-url';
+        form.appendChild(urlInput);
+      }
+      if (urlValue) urlInput.value = urlValue;
+
+      let recInput = document.getElementById('sheets-records');
+      if (!recInput){
+        recInput = document.createElement('input');
+        recInput.type = 'hidden';
+        recInput.name = 'records';
+        recInput.id = 'sheets-records';
+        form.appendChild(recInput);
+      }
+      return { iframe, form, urlInput, recInput };
+    }
+
+    // --- Google Sheets ---
+async function sendToSheets(records){
+  const url = window.GSHEET_WEBAPP_URL;
+  if (!url || !/^https:\/\/script\.google\.com\/macros\//.test(url)) {
+    return { ok:false, reason:'missing_url' };
+  }
+  const body = new URLSearchParams({ records: JSON.stringify(records) });
+  try {
+    const res  = await fetch(url, { method:'POST', body });
+    const data = await res.json().catch(()=> ({}));
+    return { ok: !!(data && data.ok), data, status: res.status };
+  } catch (err) {
+    return { ok:false, reason:'network_error', error: err };
+  }
+}
+
+async function sendUpdateToSheets(entry){
+  const url = window.GSHEET_WEBAPP_URL;
+  if (!url || !/^https:\/\/script\.google\.com\/macros\//.test(url)) {
+    return { ok:false, reason:'missing_url' };
+  }
+  // IMPORTANTE: para que realmente actualice en Sheets, tu Apps Script debe
+  // reconocer 'mode=update' y el contenido de 'entry'. Ajusta allí.
+  const body = new URLSearchParams({
+    mode: 'update',
+    entry: JSON.stringify(entry)
+    // si en el futuro manejas un ID de fila: id: entry.id
+  });
+  try {
+    const res  = await fetch(url, { method:'POST', body });
+    const data = await res.json().catch(()=> ({}));
+    return { ok: !!(data && data.ok), data, status: res.status };
+  } catch (err) {
+    return { ok:false, reason:'network_error', error: err };
+  }
+}
+
+async function sendDeleteToSheets(id){
+  const url = window.GSHEET_WEBAPP_URL;
+  if (!url || !/^https:\/\/script\.google\.com\/macros\//.test(url)) {
+    return { ok:false, reason:'missing_url' };
+  }
+  const body = new URLSearchParams({
+    mode: 'delete',
+    id: id
+  });
+  try {
+    const res  = await fetch(url, { method:'POST', body });
+    const data = await res.json().catch(()=> ({}));
+    return { ok: !!(data && data.ok), data, status: res.status };
+  } catch (err) {
+    return { ok:false, reason:'network_error', error: err };
+  }
+}
+
+/** ===== Semana en curso (Europe/Madrid) y fetch ===== **/
+function currentWeekRangeMadrid() {
+  // Lunes (0) a sábado (5). Si es domingo, mostramos la semana que acaba de terminar.
+  const tz = 'Europe/Madrid';
+  const today = new Date();
+  const dowMonBase = (today.getDay() + 6) % 7; // lunes=0,... domingo=6
+  const monday = new Date(today);
+  monday.setDate(today.getDate() - (dowMonBase === 6 ? 6 : dowMonBase));
+  const saturday = new Date(monday);
+  saturday.setDate(monday.getDate() + 5);
+
+  const toIso = d => new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())).toISOString().slice(0,10);
+  const fmt = new Intl.DateTimeFormat('es-ES',{ day:'2-digit', month:'short', year:'numeric', timeZone: tz });
+
+  return {
+    startIso: toIso(monday),
+    endIso: toIso(saturday),
+    startLabel: fmt.format(monday),
+    endLabel: fmt.format(saturday)
+  };
+}
+
+function setRecordsTitleRange(startIso, endIso, startLabel, endLabel){
+  const h = document.getElementById('recordsTitle');
+  const company = document.getElementById('company').value;
+  if (h) h.textContent = `Registros guardados esta semana por ${company} (${startLabel} – ${endLabel})`;
+
+  // Guarda límites de semana (ISO) y labels en variables globales
+  window.weekStartISO = startIso;   // ← antes intentabas usar startDate
+  window.weekEndISO   = endIso;     // ← antes intentabas usar endDate
+  window.startLabel   = startLabel;
+  window.endLabel     = endLabel;
+
+  // Aplica min/max a los inputs de fecha
+  const startInput = document.getElementById('workDate');
+  const endInput   = document.getElementById('workDateEnd');
+  [startInput, endInput].forEach(el => {
+    if (el){ el.min = startIso; el.max = endIso; }
+  });
+}
+
+
+async function fetchWeekRecords(company){
+  const { startIso, endIso, startLabel, endLabel } = currentWeekRangeMadrid();
+  setRecordsTitleRange(startIso, endIso, startLabel, endLabel);
+
+  const url = window.GSHEET_WEBAPP_URL
+    + '?resource=listWeek'
+    + '&company=' + encodeURIComponent(company)
+    + '&start='   + encodeURIComponent(startIso)
+    + '&end='     + encodeURIComponent(endIso);
+
+  const resp = await fetchJSONWithFallback(url);
+  if (!resp || !resp.ok) throw new Error((resp && resp.error) || 'No se pudo cargar la semana');
+  return resp.data || [];
+}
+
+
+async function refreshWeekForCurrentCompany(){
+  const company = document.getElementById('company').value?.trim();
+  const section = document.getElementById('recordsSection');
+  const tbody = document.getElementById('entriesTbody');
+  if (!company){
+    if (section) section.hidden = true;
+    if (tbody) tbody.innerHTML = '<tr><td colspan="9">No hay registros.</td></tr>';
+    document.getElementById('entriesTotal').textContent = '0.00';
+    return;
+  }
+  if (section) section.hidden = false;
+  tbody.innerHTML = '<tr><td colspan="9">Cargando…</td></tr>';
+
+  try{
+	const rows = await fetchWeekRecords(company);
+    timeEntries = (rows || []).map(r => {
+	  const n = parseInt(r.num_people ?? r.numPeople ?? r.people ?? r.Personas, 10);
+	  return { ...r, num_people: (Number.isFinite(n) && n > 0) ? n : 1 };
+	});
+    updateEntries();
+  } catch (e){
+    tbody.innerHTML = `<tr><td colspan="11">Error: ${e.message}</td></tr>`;
+  }
+}
+	
+
+    // --- Resumen de horas ---
+    function recalcHours(passedTotal, passedMax){
+      const numPeople = parseInt(document.getElementById('numPeople').value) || 0;
+	  const dayCount = getDayCount();
+	  const max = passedMax ?? numPeople * 8 * dayCount;
+      const total = passedTotal ?? Array.from(document.querySelectorAll('.hours')).reduce((s, el)=> s + (parseFloat(el.value)||0), 0);
+      document.getElementById('totalHours').textContent = total.toFixed(2);
+      document.getElementById('maxHours').textContent = max.toFixed(2);
+      const box = document.getElementById('hoursSummary');
+      box.classList.toggle('ok', total <= max);
+      box.classList.toggle('bad', total > max);
+    }
+
+    // --- Tabla de registros ---
+	function updateEntries(){
+	  const tbody = document.getElementById('entriesTbody'); // 👈 selector correcto
+	  if (!tbody) return;
+	
+	  tbody.innerHTML = '';
+	
+	  const rows = Array.isArray(timeEntries) ? timeEntries : [];
+	  if (!rows.length){
+	    tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; opacity:.7;">Sin registros</td></tr>`;
+	    document.getElementById('entriesTotal').textContent = '0.00';
+	    return;
+	  }
+	
+	  let total = 0;
+	
+	  rows.forEach((rec, idx) => {
+	    const nPeople = Number(rec?.num_people ?? rec?.numPeople ?? rec?.people ?? rec?.Personas) || 1;
+	    const hours   = (typeof rec?.hours === 'number') ? rec.hours : Number(rec?.hours) || 0;
+	    total += hours;
+	
+	    const tr = document.createElement('tr');
+	    tr.innerHTML = `
+	      <td>${rec.company || ''}</td>
+	      <td>${rec.cartera || 'Global'}</td>
+	      <td>${rec.application || ''}</td>
+	      <td>${rec.date || ''}</td>
+	      <td>${rec.activity || ''}</td>
+	      <td>${rec.demand || ''}</td>
+	      <td>${rec.task || ''}</td>
+	      <td>${rec.subject || ''}</td>
+	      <td>${nPeople}</td>
+	      <td style="text-align:right;">${hours.toFixed(2)}</td>
+	      <td class="actions">
+	        <button class="btn btn-xs" onclick="editEntry(${idx})" title="Editar">✏</button>
+	        <button class="btn btn-xs danger" onclick="deleteEntry(${idx})" title="Eliminar">🗑</button>
+	      </td>
+	    `;
+	    tbody.appendChild(tr);
+	  });
+	
+	  const totalCell = document.getElementById('entriesTotal');
+	  if (totalCell) totalCell.textContent = total.toFixed(2);
+	}
+
+
+	function editEntry(idx) {
+	  const rec = timeEntries[idx];
+	  if (!rec) return;
+	
+	  // Guardamos qué fila estamos editando
+	  editingIndex = idx;
+	  editingOriginalId = rec.id || null;
+	
+	  // --- Cabecera: empresa y fecha (edición = 1 día, sin rango) ---
+	  const companyEl = document.getElementById('company');
+	  const dateEl    = document.getElementById('workDate');
+	  if (companyEl) companyEl.value = rec.company || '';
+	  if (dateEl)    dateEl.value    = rec.date || new Date().toISOString().split('T')[0];
+	
+	  // (id correcto del checkbox de rango es 'isRange')
+	  const rangeChk  = document.getElementById('isRange');
+	  const dateEndEl = document.getElementById('workDateEnd');
+	  const sep       = document.getElementById('rangeSep');
+	  if (rangeChk)  rangeChk.checked = false;
+	  if (dateEndEl) dateEndEl.classList.add('hidden');
+	  if (sep)       sep.classList.add('hidden');
+	
+	  // --- Nº de personas ---
+	  const peopleEl = document.getElementById('numPeople');
+	  const numPeopleValRaw = (rec.num_people ?? rec.numPeople ?? rec.people ?? rec.Personas ?? 1);
+	  const nPeople = Math.max(1, parseInt(numPeopleValRaw, 10) || 1);
+	  if (peopleEl) peopleEl.value = nPeople;
+	
+	  // Recalcular topes/resumen con el nuevo Nº de personas
+	  if (typeof recalcHours === 'function') recalcHours();
+	
+	  // --- Actividades: limpiar y crear UNA con prefill del registro ---
+	  const actsEl = document.getElementById('activitiesContainer');
+	  if (actsEl) actsEl.innerHTML = '';
+	  if (typeof activityCount !== 'undefined') activityCount = 0;
+	
+	  createActivityBlock({
+	    activity:    rec.activity    || '',
+	    cartera:     rec.cartera     || 'Global',
+	    application: rec.application || '',
+	    demand:      rec.demand      || '',
+	    task:        rec.task        || '',
+	    subject:     rec.subject     || '',
+	    hours:       rec.hours ?? 0
+	  });
+	
+	  // --- Tras crear el bloque: simular cambio de actividad y rellenar dependientes ---
+	  const block = document.querySelector('.activity-block');
+	  const actEl = block?.querySelector('.activity');
+	  if (actEl) actEl.value = rec.activity || '';
+	
+	  // ✅ Llamar correctamente pasando el SELECT (no el DIV)
+	  let maybePromise;
+	  if (typeof onActivityChange === 'function' && actEl) {
+	    maybePromise = onActivityChange(actEl);
+	  } else if (actEl) {
+	    actEl.dispatchEvent(new Event('change', { bubbles: true }));
+	  }
+	
+	  const applyDependentFields = () => {
+	    const appEl       = block.querySelector('.app');
+	    const portEl      = block.querySelector('.portfolio');
+	    const demandEl    = block.querySelector('.demand');
+	    const subjectEl   = block.querySelector('.subject');
+	    const taskEl      = block.querySelector('.task');
+	    const activityVal = actEl ? actEl.value : '';
+	
+	    if (appEl)  appEl.value  = rec.application || '';
+	    if (portEl) portEl.value = rec.cartera || 'Global';
+	
+	    if (demandEl) demandEl.value = rec.demand || '';
+	
+	    // 🧠 Asunto:
+	    // - Delivery: re-mapea mediante onDemandChange (bloquea si hay mapeo)
+	    // - Resto: restablece el asunto del registro y asegúralo editable
+	    if (activityVal === 'Delivery' && demandEl && typeof onDemandChange === 'function') {
+	      onDemandChange(demandEl);
+	      // Si por cualquier motivo no hay mapeo y sí había subject guardado, lo reponemos sin bloquear
+	      if (subjectEl && !subjectEl.value && rec.subject) {
+	        subjectEl.value = rec.subject;
+	        subjectEl.readOnly = false;
+	      }
+	    } else if (subjectEl) {
+	      subjectEl.value = rec.subject || '';
+	      subjectEl.readOnly = false;
+	    }
+	
+	    // 🧩 Tarea: casar por value/texto; si no existe, inyectar opción y habilitar si aplica
+	    const wanted = rec.task || '';
+	    if (taskEl) {
+	      if (taskEl.tagName === 'SELECT') {
+	        const opts = Array.from(taskEl.options);
+	        const match = opts.find(o => o.value === wanted || o.text === wanted);
+	        if (match) {
+	          taskEl.value = match.value;
+	        } else if (wanted) {
+	          taskEl.add(new Option(wanted, wanted));
+	          taskEl.value = wanted;
+	        }
+	      } else {
+	        taskEl.value = wanted;
+	      }
+	      // Habilitar tarea si la actividad la requiere (Soporte / Calidad)
+	      if (activityVal === 'Soporte' || activityVal === 'Calidad') {
+	        taskEl.disabled = false;
+	      }
+	    }
+	  };
+	
+	  if (maybePromise && typeof maybePromise.then === 'function') {
+	    maybePromise.then(applyDependentFields);
+	  } else {
+	    setTimeout(applyDependentFields, 0);
+	  }
+	
+	  // --- Mostrar estado de edición ---
+	  toggleEditUI(true);
+	  showFeedback('✏ Registro cargado para edición');
+	  window.scrollTo({ top: 0, behavior:'smooth' });
+	
+	  // Retirar temporalmente la fila para evitar duplicado visual
+	  window._pendingEditBackup = timeEntries.splice(idx, 1)[0];
+	  updateEntries();
+	}
+
+
+	async function deleteEntry(idx){
+	  const rec = timeEntries[idx];
+	  if (!rec) return;
+	
+	  // Validaciones
+	  if (!rec.id) {
+	    // Registro antiguo sin ID: no podemos borrar de forma segura
+	    showError('Este registro no tiene ID en Sheets. No se puede eliminar automáticamente.');
+	    return;
+	  }
+	
+	  const okAsk = confirm('¿Eliminar este registro definitivamente?');
+	  if (!okAsk) return;
+	
+	  // Llamada al backend
+	  try {
+	    const delRes = await sendDeleteToSheets(rec.id);
+	    if (!delRes.ok) {
+	      if (delRes.reason === 'missing_url') {
+	        showError('⚠️ Falta configurar la URL del Web App');
+	      } else if (delRes.reason === 'network_error') {
+	        showError('⚠️ No se pudo conectar con el servidor');
+	      } else if (delRes.data && delRes.data.error === 'not_found') {
+	        showError('⚠️ ID no encontrado en Sheets (ya estaba eliminado o no existe).');
+	      } else {
+	        showError('⚠️ El servidor no confirmó el borrado');
+	        console.log('Diagnóstico borrado:', delRes);
+	      }
+	      return;
+	    }
+	
+	    // Si el servidor confirmó, ahora sí eliminamos en la UI
+		await refreshWeekForCurrentCompany();
+		showFeedback('🗑 Registro eliminado');
+	  } catch (err) {
+	    console.error(err);
+	    showError('⚠️ Error inesperado al eliminar');
+	  }
+	}
+
+
+  // Hook que recibe la lista desde Apps Script
+	function populateDemandCodes(list){
+	  window.DEMAND_CODES = [];
+	  window.DEMAND_MAP   = {};      
+	  window.DEMAND_CARTERA = {};    
+	
+	  (Array.isArray(list) ? list : []).forEach(item => {
+	    const code    = item.Demanda || item.demanda || item.code || '';
+	    const subj    = item.Asunto  || item.asunto  || item.subject || '';
+	    const cartera = item.Cartera || item.cartera || item.portfolio || '';
+	    if (code) {
+	      window.DEMAND_CODES.push(code);
+	      window.DEMAND_MAP[code]     = subj || '';
+	      window.DEMAND_CARTERA[code] = cartera || '';   // 👈 guarda la cartera
+	    }
+	  });
+	
+	  // Rellenar el datalist global
+	  const dl = document.getElementById('demandCodesList');
+	  if (dl) {
+	    dl.innerHTML = window.DEMAND_CODES.map(c => `<option value="${c}"></option>`).join('');
+	  }
+	
+	  console.log('DEMAND_CODES cargados:', window.DEMAND_CODES.length);
+	  window.dispatchEvent(new CustomEvent('demandcodes:ready'));
+	
+	  // Si ya hay bloques en Delivery y el usuario tenía algo escrito, aplica mapeo
+	 // Si ya hay bloques en Delivery y el usuario tenía algo escrito, aplica mapeo
+	document.querySelectorAll('.activity-block').forEach(block => {
+		  const activity     = block.querySelector('.activity')?.value;
+		  const demandInput  = block.querySelector('.demand');
+		  const subjectInput = block.querySelector('.subject');
+		  const portfolio    = block.querySelector('.portfolio');
+		
+		  if (activity === 'Delivery' && demandInput) {
+		    const code = (demandInput.value || '').trim();
+		
+		    // Asunto
+		    const mappedSubject = window.DEMAND_MAP[code] || '';
+		    if (mappedSubject) {
+		      subjectInput.value = mappedSubject;
+		      subjectInput.readOnly = true;
+		    }
+		
+		    // 👇 Cartera (columna C)
+		    const mappedCartera = window.DEMAND_CARTERA[code] || '';
+		    if (mappedCartera && portfolio) {
+		      const exists = [...portfolio.options].some(o => o.value === mappedCartera);
+		      if (!exists) {
+		        portfolio.insertAdjacentHTML('beforeend', `<option value="${mappedCartera}">${mappedCartera}</option>`);
+		      }
+		      portfolio.value = mappedCartera;
+		      portfolio.disabled = true;
+		    }
+		  }
+		});
+	}
+
+	function cancelEdit(){
+	  editingIndex = null;
+	  editingOriginalId = null;
+	  toggleEditUI(false);
+	
+	  // Limpia el formulario y deja 1 bloque nuevo
+	  const actsEl = document.getElementById('activitiesContainer');
+	  if (actsEl) actsEl.innerHTML = '';
+	  if (typeof activityCount !== 'undefined') activityCount = 0;
+	  createActivityBlock();
+	
+	  const dateEl = document.getElementById('workDate');
+	  if (dateEl) dateEl.value = new Date().toISOString().split('T')[0];
+	  const peopleEl = document.getElementById('numPeople');
+	  if (peopleEl) peopleEl.value = 1;
+	  recalcHours();
+	
+	  // Restaura la tabla desde backend para recuperar la fila retirada
+	  if (typeof refreshWeekForCurrentCompany === 'function') refreshWeekForCurrentCompany();
+	  window._pendingEditBackup = null;
+	}
+
+
+document.addEventListener('DOMContentLoaded', () => {
+  // ===== Fecha por defecto (inicio) =====
+  const dateEl = document.getElementById('workDate');
+  if (dateEl) dateEl.value = new Date().toISOString().split('T')[0];
+
+  // ===== Referencias para la UI de rango =====
+  const isRangeEl = document.getElementById('isRange');
+  const endEl = document.getElementById('workDateEnd');
+  const sepEl = document.getElementById('rangeSep');
+
+  // Muestra/oculta fecha fin y sincroniza límites
+  function updateRangeUI(){
+    const on = !!(isRangeEl && isRangeEl.checked);
+    if (on){
+      if (endEl) {
+        endEl.classList.remove('hidden');
+        if (!endEl.value && dateEl) endEl.value = dateEl.value; // fin = inicio por defecto
+      }
+      if (sepEl) sepEl.classList.remove('hidden');
+    } else {
+      if (endEl){
+        endEl.classList.add('hidden');
+        endEl.value = '';
+      }
+      if (sepEl) sepEl.classList.add('hidden');
+    }
+    recalcHours(); // el máximo depende del nº de días seleccionados
+  }
+
+  // Listeners del rango
+  if (isRangeEl && dateEl && endEl){
+    isRangeEl.addEventListener('change', updateRangeUI);
+
+    dateEl.addEventListener('change', () => {
+      // Si hay rango activo, garantiza fin >= inicio
+      if (isRangeEl.checked){
+        if (!endEl.value) endEl.value = dateEl.value;
+        const s = parseIsoDate(dateEl.value);
+        const e = parseIsoDate(endEl.value);
+        if (s && e && e < s) endEl.value = dateEl.value;
+      }
+      recalcHours();
+    });
+
+    endEl.addEventListener('change', () => {
+      const dates = getSelectedDates();   // usa las funciones que añadimos antes
+      // Marca error visual si el rango no es válido
+      if (!dates.length){
+        endEl.style.borderColor = 'var(--error)';
+      } else {
+        endEl.style.borderColor = '';
+      }
+      recalcHours();
+    });
+
+    // Sincroniza estado inicial (por si el checkbox viene marcado en el HTML)
+    updateRangeUI();
+  }
+
+  // ===== Crea el primer bloque de actividad =====
+  createActivityBlock();
+
+  // ===== UI de horas =====
+  recalcHours();
+
+  const peopleEl = document.getElementById('numPeople');
+  if (peopleEl) peopleEl.addEventListener('input', () => recalcHours());
+
+  const actsEl = document.getElementById('activitiesContainer');
+  if (actsEl) actsEl.addEventListener('input', (e) => {
+    if (e.target.classList.contains('hours')) recalcHours();
+  });
+
+  // ===== Edit UI / Compañía & refresco de semana =====
+  toggleEditUI(false);
+
+  const companyEl = document.getElementById('company');
+  if (companyEl){
+    companyEl.addEventListener('change', refreshWeekForCurrentCompany);
+  }
+  if (companyEl && companyEl.value) refreshWeekForCurrentCompany();
+});
+
+
+
+// Asegura que las funciones referenciadas en atributos HTML existan en window
+window.addActivityBlock  = addActivityBlock;
+window.validateAndSave   = validateAndSave;
+window.onActivityChange  = onActivityChange;
+window.onDemandChange    = onDemandChange;
+
+// Si usas la versión con updateTasks / updateTarea (v2), expórtalas si existen
+if (typeof updateTasks === 'function')  window.updateTasks  = updateTasks;
+if (typeof updateTarea === 'function')  window.updateTarea  = updateTarea;
+
+// Compatibilidad: si el HTML aún llama onTaskChange, apunta al alias correcto
+if (typeof onTaskChange === 'function') { 
+  window.onTaskChange = onTaskChange; 
+} else if (typeof updateTarea === 'function') { 
+  window.onTaskChange = updateTarea; 
+}
+
+// (Opcional) para el loader JSONP de códigos
+if (typeof populateDemandCodes === 'function') window.populateDemandCodes = populateDemandCodes;
+
+async function loadCodes(){
+  const url = window.GSHEET_WEBAPP_URL + '?resource=codes';
+  try {
+    const resp = await fetchJSONWithFallback(url);
+    if (resp && resp.ok && Array.isArray(resp.list)) {
+      if (typeof populateDemandCodes === 'function') populateDemandCodes(resp.list);
+    } else {
+      console.error('Respuesta codes inválida', resp);
+    }
+  } catch(err){
+    console.error('Error cargando codes', err);
+  }
+}
+
+
+	async function fetchJSONWithFallback(url){
+	  // 1) Intento con fetch normal (funciona en https y mismo deployment)
+	  try {
+	    const res = await fetch(url, { cache: 'no-store' });
+	    const ct = (res.headers.get('content-type') || '').toLowerCase();
+	    if (!res.ok) throw new Error('HTTP '+res.status);
+	    if (!ct.includes('application/json')) throw new Error('Unexpected content-type');
+	    return await res.json();
+	  } catch (_e) {
+	    // 2) Fallback JSONP (funciona incluso en file://)
+	    return await jsonp(url);
+	  }
+	}
+	
+	function jsonp(url){
+	  return new Promise((resolve, reject) => {
+	    const cb = 'cb_' + Math.random().toString(36).slice(2);
+	    const s  = document.createElement('script');
+	    const sep = url.includes('?') ? '&' : '?';
+	    s.src = url + sep + 'callback=' + cb + '&_=' + Date.now();
+	
+	    let done = false;
+	    window[cb] = (resp) => {
+	      if (done) return;
+	      done = true;
+	      cleanup();
+	      resolve(resp);
+	    };
+	    s.onerror = () => {
+	      if (done) return;
+	      done = true;
+	      cleanup();
+	      reject(new Error('JSONP error'));
+	    };
+	    function cleanup(){
+	      try { delete window[cb]; s.remove(); } catch(_) {}
+	    }
+	    document.body.appendChild(s);
+	    setTimeout(() => {
+	      if (!done) { done = true; cleanup(); reject(new Error('JSONP timeout')); }
+	    }, 10000);
+	  });
+	}
+
+
+
+	
+document.addEventListener('DOMContentLoaded', loadCodes);
+	
+  function $(sel){ return document.querySelector(sel); }
+  function setVal(sel, v){ const el=$(sel); if(el) el.value = (v ?? ''); }
+
+  // Para selects o inputs con datalist. Si el valor no existe en el select, lo crea.
+  function setSelectOrDatalist(sel, v){
+    const el = $(sel); if(!el) return;
+    if (el.tagName === 'SELECT'){
+      const opt = [...el.options].find(o => (o.value == v || o.text == v));
+      if (opt) el.value = opt.value;
+      else {
+        const o = new Option(v, v, true, true);
+        el.add(o); el.value = v;
+      }
+    } else {
+      el.value = v ?? '';
+    }
+  }
+
+// ====== FECHAS (rango) ======
+function toIsoDate(d){ return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())).toISOString().slice(0,10); }
+function parseIsoDate(s){ const [y,m,d] = (s||'').split('-').map(n=>parseInt(n,10)); if(!y||!m||!d) return null; return new Date(y, m-1, d); }
+
+// Devuelve array de YYYY-MM-DD para el rango seleccionado (inclusive), limitado a 1..5 días.
+function getSelectedDates(){
+  const startStr = document.getElementById('workDate')?.value || '';
+  const isRange = document.getElementById('isRange')?.checked;
+  const endStr = document.getElementById('workDateEnd')?.value || '';
+
+  const start = parseIsoDate(startStr);
+  if (!start) return [];
+
+  let end = start;
+  if (isRange){
+    const e = parseIsoDate(endStr);
+    if (!e) return [];
+    if (e < start) return [];
+    end = e;
+  }
+
+  const days = [];
+  const cur = new Date(start);
+  while (cur <= end && days.length < 5){
+    days.push(toIsoDate(cur));
+    cur.setDate(cur.getDate()+1);
+  }
+  return days;
+}
+
+function getDayCount(){
+  const dates = getSelectedDates();
+  return Math.max(1, Math.min(5, dates.length || 1));
+}
+
+// Reparte horas totales en 'parts' días, igualadas y redondeadas a 2 decimales,
+// garantizando que la suma final coincida con el total original.
+function splitHoursEvenly(total, parts){
+  const factor = 100;                       // centésimas de hora
+  let units = Math.round((total || 0) * factor);
+  const base = Math.floor(units / parts);   // base en centésimas
+  let rem = units - base * parts;           // resto a distribuir
+  const arr = Array(parts).fill(base);
+  for (let i = 0; i < parts && rem > 0; i++, rem--) arr[i]++; // distribuye 1 centésima a los primeros 'rem'
+  return arr.map(u => u / factor);
+}
+
+function toggleEditUI(on){
+  const saveBtn   = document.getElementById('btnSave');
+  const cancelBtn = document.getElementById('cancelEditBtn');
+  if (!saveBtn || !cancelBtn) return;
+  if (on){
+    saveBtn.textContent = 'Guardar cambios';
+    cancelBtn.classList.remove('hidden');
+  } else {
+    saveBtn.textContent = '💾 Guardar Registro';
+    cancelBtn.classList.add('hidden');
+  }
+}
+</script>
+<datalist id="demandCodesList"></datalist>
+<datalist id="appsList">
+  <option value="AAE: JURI"></option>
+  <option value="AAE: Seguimiento y Control de Contratos de Venta AE"></option>
+  <option value="AAE: SIRO - IMDI"></option>
+  <option value="CIRCE"></option>
+  <option value="Enable Now"></option>
+  <option value="Enablon: Enablon"></option>
+  <option value="Expediting"></option>
+  <option value="GIM RRHH"></option>
+  <option value="GoSupply"></option>
+  <option value="GreenVille"></option>
+  <option value="Headcount Budgeting Tool"></option>
+  <option value="Kaleido LMS"></option>
+  <option value="LumApps"></option>
+  <option value="MAP (Managing AE Processes)"></option>
+  <option value="Metaverso"></option>
+  <option value="Organimi"></option>
+  <option value="Perfil de Contratista"></option>
+  <option value="Plan Acción AE"></option>
+  <option value="Procurement"></option>
+  <option value="SAP Ariba Contracts - CLM"></option>
+  <option value="SCS: SCS"></option>
+  <option value="SO99+: SO99+"></option>
+  <option value="Web Soluciones Acciona Energia"></option>
+  <option value="Wordly"></option>
+</datalist>
+  
 </body>
 </html>
