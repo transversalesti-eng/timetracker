@@ -153,7 +153,7 @@
 
 <script>
 // URL de tu Web App de Google Apps Script
-window.GSHEET_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbyN7tSovTseqtogK_iaFNa-ecdkwG_4IdczlfvjCh3MgfrFvMGnGVOamTvcna8ZE595/exec";
+window.GSHEET_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbwTx2jgrQ-ptpbsudJlKryME-T3a3tYEMbyGw9FnhrCpy6HmrtvBZ-wJQmwfnK3brZ5/exec";
 
 const SUBTASKS = {
   Soporte: ['Incidencias', 'Peticiones', 'Consultas'],
@@ -214,6 +214,7 @@ const APP_TO_CARTERA = {
 };
 
 function fillOptions(selectEl, options){
+  if (!selectEl || selectEl.tagName !== 'SELECT') return; // 👈 evita tocar inputs
   const placeholder = '<option value="" selected>— Selecciona —</option>';
   selectEl.innerHTML = placeholder + (options || []).map(v => `<option value="${v}">${v}</option>`).join('');
 }
@@ -430,27 +431,23 @@ function onActivityChange(selectEl){
 
 
   switch (v) {
-case 'Delivery': {
-  const hydrate = () => {
-    // Solo habilitar el <input>; el datalist se llena en populateDemandCodes()
-    demandSelect.disabled = false;
-    // Si el usuario ya escribió algo que tiene mapeo, bloqueamos asunto:
-    const code = demandSelect.value || '';
-    const mapped = (window.DEMAND_MAP && window.DEMAND_MAP[code]) || '';
-    subjectInput.value    = mapped || subjectInput.value;
-    subjectInput.readOnly = !!mapped;
-  };
-
-  // En esta versión demandSelect es un <input>, no un <select>
-  if (Array.isArray(window.DEMAND_CODES) && window.DEMAND_CODES.length > 0) {
-    hydrate();
-  } else {
-    demandSelect.disabled = true;
-    // Espera a que carguen los códigos
-    window.addEventListener('demandcodes:ready', hydrate, { once:true });
-  }
-  break;
-}
+	case 'Delivery': {
+	  const enableDemand = () => {
+	    demandSelect.disabled = false; // habilitar siempre
+	    const code   = demandSelect.value || '';
+	    const mapped = (window.DEMAND_MAP && window.DEMAND_MAP[code]) || '';
+	    subjectInput.value    = mapped || subjectInput.value;
+	    subjectInput.readOnly = !!mapped;
+	  };
+	
+	  enableDemand(); // habilita ya el input
+	
+	  // Si aún no llegaron los códigos, cuando lleguen re-evaluamos mapeos
+	  if (!Array.isArray(window.DEMAND_CODES) || window.DEMAND_CODES.length === 0) {
+	    window.addEventListener('demandcodes:ready', enableDemand, { once:true });
+	  }
+	  break;
+	}
 
 
     case 'Soporte':
@@ -513,6 +510,7 @@ function onDemandChange(inputEl){
   const parent       = inputEl.closest('.activity-block');
   const activity     = parent.querySelector('.activity')?.value || '';
   const subjectInput = parent.querySelector('.subject');
+  const portfolio    = parent.querySelector('.portfolio');
   const code         = (inputEl.value || '').trim();
 
   if (!subjectInput) return;
@@ -545,6 +543,22 @@ function onDemandChange(inputEl){
   } else {
     if (mapped && !subjectInput.value) subjectInput.value = mapped;
     subjectInput.readOnly = false;
+  }
+
+	// mapeo de Cartera desde Sheets (columna C)
+  const mappedCartera = (window.DEMAND_CARTERA && window.DEMAND_CARTERA[code]) || '';
+  if (portfolio) {
+    if (mappedCartera) {
+      // Asegura que exista la opción y selecciónala
+      const exists = [...portfolio.options].some(o => o.value === mappedCartera);
+      if (!exists){
+        portfolio.insertAdjacentHTML('beforeend', `<option value="${mappedCartera}">${mappedCartera}</option>`);
+      }
+      portfolio.value = mappedCartera;
+      portfolio.disabled = true;          // bloquea cuando viene de mapeo
+    } else {
+      portfolio.disabled = false;         // si no hay mapeo, deja editable
+    }
   }
 }
 
@@ -1185,10 +1199,6 @@ async function refreshWeekForCurrentCompany(){
 	}
 
 
-
-
-
-
 	async function deleteEntry(idx){
 	  const rec = timeEntries[idx];
 	  if (!rec) return;
@@ -1233,14 +1243,17 @@ async function refreshWeekForCurrentCompany(){
   // Hook que recibe la lista desde Apps Script
 	function populateDemandCodes(list){
 	  window.DEMAND_CODES = [];
-	  window.DEMAND_MAP   = {};
+	  window.DEMAND_MAP   = {};      
+	  window.DEMAND_CARTERA = {};    
 	
 	  (Array.isArray(list) ? list : []).forEach(item => {
-	    const code = item.Demanda || item.demanda || item.code || '';
-	    const subj = item.Asunto  || item.asunto  || item.subject || '';
+	    const code    = item.Demanda || item.demanda || item.code || '';
+	    const subj    = item.Asunto  || item.asunto  || item.subject || '';
+	    const cartera = item.Cartera || item.cartera || item.portfolio || '';
 	    if (code) {
 	      window.DEMAND_CODES.push(code);
-	      window.DEMAND_MAP[code] = subj || '';
+	      window.DEMAND_MAP[code]     = subj || '';
+	      window.DEMAND_CARTERA[code] = cartera || '';   // 👈 guarda la cartera
 	    }
 	  });
 	
